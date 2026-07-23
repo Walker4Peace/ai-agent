@@ -1,7 +1,6 @@
 import React from "react";
 import { Link, useParams, useLocation } from "wouter";
 import { 
-  useListExtensions,
   useGetAgentConfig,
   useCreateAgentConfig,
   useUpdateAgentConfig
@@ -12,7 +11,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -36,7 +35,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { ArrowLeft } from "lucide-react";
 
 const formSchema = z.object({
-  extensionId: z.string().min(1, "Select an extension"),
+  name: z.string().min(1, "Agent name is required"),
   provider: z.enum(["openai", "elevenlabs", "gemini", "deepgram", "cartesia"]),
   apiKey: z.string().min(1, "API Key is required"),
   mode: z.enum(["inbound", "outbound"]).default("inbound"),
@@ -55,12 +54,6 @@ export default function AgentConfigForm() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Search params parsing logic
-  const searchParams = new URLSearchParams(window.location.search);
-  const extParam = searchParams.get('ext');
-
-  const { data: extensions } = useListExtensions();
-  
   const { data: existingConfig, isLoading: isLoadingConfig } = useGetAgentConfig(
     Number(id), 
     { query: { enabled: isEdit, queryKey: ['agentConfig', Number(id)] } }
@@ -72,7 +65,7 @@ export default function AgentConfigForm() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      extensionId: extParam || "",
+      name: "",
       provider: "openai",
       apiKey: "",
       mode: "inbound",
@@ -90,7 +83,7 @@ export default function AgentConfigForm() {
   React.useEffect(() => {
     if (isEdit && existingConfig) {
       form.reset({
-        extensionId: existingConfig.extensionId.toString(),
+        name: existingConfig.name,
         provider: existingConfig.provider,
         apiKey: existingConfig.apiKey,
         mode: (existingConfig.mode as "inbound" | "outbound") || "inbound",
@@ -105,35 +98,29 @@ export default function AgentConfigForm() {
   }, [isEdit, existingConfig, form]);
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    const data = {
-      ...values,
-      extensionId: Number(values.extensionId),
-    };
-
     if (isEdit) {
       updateMutation.mutate(
-        { id: Number(id), data },
+        { id: Number(id), data: values },
         {
           onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['agentConfigs'] });
             queryClient.invalidateQueries({ queryKey: ['agentConfig', Number(id)] });
-            toast({ title: "Config updated", description: "The agent configuration was saved." });
-            setLocation(`/extensions/${data.extensionId}`);
+            toast({ title: "Agent updated", description: "The agent configuration was saved." });
+            setLocation("/agent-configs");
           },
-          onError: () => toast({ variant: "destructive", title: "Error", description: "Failed to update config." }),
+          onError: () => toast({ variant: "destructive", title: "Error", description: "Failed to update agent." }),
         }
       );
     } else {
       createMutation.mutate(
-        { data },
+        { data: values },
         {
-          onSuccess: (res) => {
+          onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['agentConfigs'] });
-            queryClient.invalidateQueries({ queryKey: ['extensions'] });
-            toast({ title: "Config created", description: "The AI agent has been configured." });
-            setLocation(`/extensions/${data.extensionId}`);
+            toast({ title: "Agent created", description: "The AI agent has been configured." });
+            setLocation("/agent-configs");
           },
-          onError: () => toast({ variant: "destructive", title: "Error", description: "Failed to create config. Extension may already have one." }),
+          onError: () => toast({ variant: "destructive", title: "Error", description: "Failed to create agent." }),
         }
       );
     }
@@ -178,8 +165,8 @@ export default function AgentConfigForm() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{isEdit ? "Edit Agent Config" : "New Agent Config"}</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Configure AI behavior for a SIP extension.</p>
+          <h1 className="text-3xl font-bold tracking-tight">{isEdit ? "Edit AI Agent" : "New AI Agent"}</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Configure an AI agent that can be assigned to any extension.</p>
         </div>
       </div>
 
@@ -191,28 +178,13 @@ export default function AgentConfigForm() {
               <div className="grid grid-cols-3 gap-6 pb-6 border-b">
                 <FormField
                   control={form.control}
-                  name="extensionId"
+                  name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Extension</FormLabel>
-                      <Select 
-                        onValueChange={field.onChange} 
-                        defaultValue={field.value}
-                        disabled={isEdit}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select an extension" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {extensions?.map((ext) => (
-                            <SelectItem key={ext.id} value={ext.id.toString()}>
-                              {ext.extensionNumber} {ext.displayName ? `(${ext.displayName})` : ''}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormLabel>Agent Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="ElevenLabs Sales Agent" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -374,7 +346,7 @@ export default function AgentConfigForm() {
                       </FormLabel>
                       <FormControl>
                         <Textarea 
-                          placeholder="You are a helpful customer service assistant for Acme Corp..." 
+                          placeholder="You are a helpful customer service assistant..." 
                           className="min-h-[120px]"
                           {...field} 
                         />
@@ -403,7 +375,7 @@ export default function AgentConfigForm() {
                         />
                       </FormControl>
                       <FormDescription>
-                        Optional JSON merged into the root of config.json for advanced overrides.
+                        Optional JSON merged into the root of the config for advanced overrides.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -416,7 +388,7 @@ export default function AgentConfigForm() {
                   Cancel
                 </Button>
                 <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                  {isEdit ? "Update Configuration" : "Create Configuration"}
+                  {isEdit ? "Update Agent" : "Create Agent"}
                 </Button>
               </div>
             </form>

@@ -6,7 +6,8 @@ export const clientsTable = pgTable("clients", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
-  serverIp: text("server_ip"),
+  sipDomain: text("sip_domain"),
+  sipServer: text("sip_server"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

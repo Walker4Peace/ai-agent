@@ -14,8 +14,8 @@ export const extensionsRelations = relations(extensionsTable, ({ one }) => ({
     references: [clientsTable.id],
   }),
   agentConfig: one(agentConfigsTable, {
-    fields: [extensionsTable.id],
-    references: [agentConfigsTable.extensionId],
+    fields: [extensionsTable.agentConfigId],
+    references: [agentConfigsTable.id],
   }),
   deployment: one(deploymentsTable, {
     fields: [extensionsTable.id],
@@ -23,9 +23,6 @@ export const extensionsRelations = relations(extensionsTable, ({ one }) => ({
   }),
 }));
 
-export const agentConfigsRelations = relations(agentConfigsTable, ({ one }) => ({
-  extension: one(extensionsTable, {
-    fields: [agentConfigsTable.extensionId],
-    references: [extensionsTable.id],
-  }),
+export const agentConfigsRelations = relations(agentConfigsTable, ({ many }) => ({
+  extensions: many(extensionsTable),
 }));

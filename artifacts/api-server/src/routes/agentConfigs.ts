@@ -7,19 +7,14 @@ import {
   GetAgentConfigParams,
   UpdateAgentConfigParams,
   DeleteAgentConfigParams,
-  ListAgentConfigsQueryParams,
 } from "@workspace/api-zod";
 
 const router = Router();
 
 router.get("/agent-configs", async (req, res) => {
-  const query = ListAgentConfigsQueryParams.safeParse(req.query);
-  const extensionId = query.success ? query.data.extensionId : undefined;
-
   const configs = await db
     .select()
     .from(agentConfigsTable)
-    .where(extensionId ? eq(agentConfigsTable.extensionId, extensionId) : undefined)
     .orderBy(agentConfigsTable.createdAt);
   res.json(configs);
 });

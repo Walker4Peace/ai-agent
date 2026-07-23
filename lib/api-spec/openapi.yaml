@@ -3,7 +3,7 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: SIP4AI Configuration Manager API
+  description: SIP Agent Configuration Manager API
 servers:
   - url: /api
     description: Base API path
@@ -11,13 +11,11 @@ tags:
   - name: health
     description: Health operations
   - name: clients
-    description: Client/installation management
+    description: IPBX management
   - name: extensions
     description: SIP extension management
   - name: agentConfigs
-    description: AI agent configuration per extension
-  - name: generate
-    description: Config file generation
+    description: AI agent configuration
   - name: stats
     description: Dashboard statistics
 
@@ -52,10 +50,10 @@ paths:
     get:
       operationId: listClients
       tags: [clients]
-      summary: List all clients
+      summary: List all IPBXs
       responses:
         "200":
-          description: List of clients
+          description: List of IPBXs
           content:
             application/json:
               schema:
@@ -65,7 +63,7 @@ paths:
     post:
       operationId: createClient
       tags: [clients]
-      summary: Create a client
+      summary: Create an IPBX
       requestBody:
         required: true
         content:
@@ -74,7 +72,7 @@ paths:
               $ref: "#/components/schemas/CreateClientInput"
       responses:
         "201":
-          description: Created client
+          description: Created IPBX
           content:
             application/json:
               schema:
@@ -84,7 +82,7 @@ paths:
     get:
       operationId: getClient
       tags: [clients]
-      summary: Get a client by ID
+      summary: Get an IPBX by ID
       parameters:
         - name: id
           in: path
@@ -93,7 +91,7 @@ paths:
             type: integer
       responses:
         "200":
-          description: Client
+          description: IPBX
           content:
             application/json:
               schema:
@@ -107,7 +105,7 @@ paths:
     put:
       operationId: updateClient
       tags: [clients]
-      summary: Update a client
+      summary: Update an IPBX
       parameters:
         - name: id
           in: path
@@ -122,7 +120,7 @@ paths:
               $ref: "#/components/schemas/CreateClientInput"
       responses:
         "200":
-          description: Updated client
+          description: Updated IPBX
           content:
             application/json:
               schema:
@@ -130,7 +128,7 @@ paths:
     delete:
       operationId: deleteClient
       tags: [clients]
-      summary: Delete a client
+      summary: Delete an IPBX
       parameters:
         - name: id
           in: path
@@ -244,11 +242,6 @@ paths:
       operationId: listAgentConfigs
       tags: [agentConfigs]
       summary: List all agent configs
-      parameters:
-        - name: extensionId
-          in: query
-          schema:
-            type: integer
       responses:
         "200":
           description: List of agent configs
@@ -337,56 +330,6 @@ paths:
         "204":
           description: Deleted
 
-  /generate/{extensionId}/config:
-    get:
-      operationId: generateConfig
-      tags: [generate]
-      summary: Generate config.json for an extension
-      parameters:
-        - name: extensionId
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: Generated config JSON
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/GeneratedConfig"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /generate/{extensionId}/service:
-    get:
-      operationId: generateServiceFile
-      tags: [generate]
-      summary: Generate systemd service file content for an extension
-      parameters:
-        - name: extensionId
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: Generated systemd service file content
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/GeneratedServiceFile"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
 components:
   schemas:
     HealthStatus:
@@ -442,7 +385,10 @@ components:
         description:
           type: string
           nullable: true
-        serverIp:
+        sipDomain:
+          type: string
+          nullable: true
+        sipServer:
           type: string
           nullable: true
         createdAt:
@@ -465,7 +411,10 @@ components:
         description:
           type: string
           nullable: true
-        serverIp:
+        sipDomain:
+          type: string
+          nullable: true
+        sipServer:
           type: string
           nullable: true
       required:
@@ -479,6 +428,9 @@ components:
         clientId:
           type: integer
           nullable: true
+        agentConfigId:
+          type: integer
+          nullable: true
         extensionNumber:
           type: string
         displayName:
@@ -489,10 +441,6 @@ components:
         sipAuthId:
           type: string
         sipPassword:
-          type: string
-        sipDomain:
-          type: string
-        sipServer:
           type: string
         createdAt:
           type: string
@@ -512,8 +460,6 @@ components:
         - sipUsername
         - sipAuthId
         - sipPassword
-        - sipDomain
-        - sipServer
         - createdAt
         - updatedAt
 
@@ -521,6 +467,9 @@ components:
       type: object
       properties:
         clientId:
+          type: integer
+          nullable: true
+        agentConfigId:
           type: integer
           nullable: true
         extensionNumber:
@@ -534,17 +483,11 @@ components:
           type: string
         sipPassword:
           type: string
-        sipDomain:
-          type: string
-        sipServer:
-          type: string
       required:
         - extensionNumber
         - sipUsername
         - sipAuthId
         - sipPassword
-        - sipDomain
-        - sipServer
 
     AiProvider:
       type: string
@@ -560,8 +503,8 @@ components:
       properties:
         id:
           type: integer
-        extensionId:
-          type: integer
+        name:
+          type: string
         provider:
           $ref: "#/components/schemas/AiProvider"
         apiKey:
@@ -590,7 +533,7 @@ components:
           format: date-time
       required:
         - id
-        - extensionId
+        - name
         - provider
         - apiKey
         - createdAt
@@ -599,8 +542,8 @@ components:
     CreateAgentConfigInput:
       type: object
       properties:
-        extensionId:
-          type: integer
+        name:
+          type: string
         provider:
           $ref: "#/components/schemas/AiProvider"
         apiKey:
@@ -621,29 +564,6 @@ components:
           type: string
           nullable: true
       required:
-        - extensionId
+        - name
         - provider
         - apiKey
-
-    GeneratedConfig:
-      type: object
-      properties:
-        filename:
-          type: string
-        content:
-          type: object
-          additionalProperties: true
-      required:
-        - filename
-        - content
-
-    GeneratedServiceFile:
-      type: object
-      properties:
-        filename:
-          type: string
-        content:
-          type: string
-      required:
-        - filename
-        - content

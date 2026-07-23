@@ -1,14 +1,14 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
-import { Server, Users, Phone, Settings, Menu, Activity, ScrollText } from "lucide-react";
+import { Server, Users, Phone, Settings, Menu, Activity, ScrollText, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
   { name: "Dashboard", href: "/", icon: Activity },
-  { name: "Clients", href: "/clients", icon: Users },
+  { name: "IPBXs", href: "/clients", icon: Users },
   { name: "Extensions", href: "/extensions", icon: Phone },
-  { name: "Agent Configs", href: "/agent-configs", icon: Server },
+  { name: "AI Agents", href: "/agent-configs", icon: Bot },
   { name: "Logs", href: "/logs", icon: ScrollText },
 ];
 

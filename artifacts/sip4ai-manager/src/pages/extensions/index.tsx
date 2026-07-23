@@ -4,6 +4,7 @@ import {
   useListExtensions, 
   useDeleteExtension,
   useListClients,
+  useListAgentConfigs,
   useCreateExtension,
   getListExtensionsQueryKey
 } from "@workspace/api-client-react";
@@ -53,18 +54,18 @@ import { useAllDeployStatuses, statusLabel, statusColor } from "@/hooks/use-depl
 
 const formSchema = z.object({
   clientId: z.string().optional(),
+  agentConfigId: z.string().optional(),
   extensionNumber: z.string().min(1, "Extension number is required."),
   displayName: z.string().optional(),
   sipUsername: z.string().min(1, "SIP Username is required."),
   sipAuthId: z.string().min(1, "SIP Auth ID is required."),
   sipPassword: z.string().min(1, "SIP Password is required."),
-  sipDomain: z.string().min(1, "SIP Domain is required."),
-  sipServer: z.string().min(1, "SIP Server is required."),
 });
 
 export default function ExtensionsList() {
   const { data: extensions, isLoading } = useListExtensions();
   const { data: clients } = useListClients();
+  const { data: agentConfigs } = useListAgentConfigs();
   const { data: allStatuses } = useAllDeployStatuses();
   const statusMap = React.useMemo(() => {
     const m = new Map<number, { status: string }>();
@@ -82,13 +83,12 @@ export default function ExtensionsList() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       clientId: "none",
+      agentConfigId: "none",
       extensionNumber: "",
       displayName: "",
       sipUsername: "",
       sipAuthId: "",
       sipPassword: "",
-      sipDomain: "",
-      sipServer: "",
     },
   });
 
@@ -96,6 +96,7 @@ export default function ExtensionsList() {
     const data = {
       ...values,
       clientId: values.clientId === "none" ? null : Number(values.clientId),
+      agentConfigId: values.agentConfigId === "none" ? null : Number(values.agentConfigId),
     };
 
     createExtension.mutate(
@@ -122,7 +123,7 @@ export default function ExtensionsList() {
   };
 
   const handleDelete = (id: number) => {
-    if (!window.confirm("Are you sure you want to delete this extension? This will also remove its agent config.")) return;
+    if (!window.confirm("Are you sure you want to delete this extension?")) return;
     
     deleteExtension.mutate(
       { id },
@@ -168,17 +169,43 @@ export default function ExtensionsList() {
                     name="clientId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Client (Optional)</FormLabel>
+                        <FormLabel>IPBX</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select a client" />
+                              <SelectValue placeholder="Select an IPBX" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="none">No Client</SelectItem>
+                            <SelectItem value="none">No IPBX</SelectItem>
                             {clients?.map((c) => (
                               <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="agentConfigId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>AI Agent</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select an agent" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="none">No Agent</SelectItem>
+                            {agentConfigs?.map((a) => (
+                              <SelectItem key={a.id} value={a.id.toString()}>
+                                {a.name} ({a.provider})
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -247,7 +274,7 @@ export default function ExtensionsList() {
                     control={form.control}
                     name="sipPassword"
                     render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="col-span-2">
                         <FormLabel>SIP Password</FormLabel>
                         <FormControl>
                           <PasswordInput placeholder="Secret password" {...field} />
@@ -256,35 +283,11 @@ export default function ExtensionsList() {
                       </FormItem>
                     )}
                   />
-
-                  <FormField
-                    control={form.control}
-                    name="sipDomain"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>SIP Domain</FormLabel>
-                        <FormControl>
-                          <Input placeholder="pbx.acme.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="sipServer"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>SIP Server:Port</FormLabel>
-                        <FormControl>
-                          <Input placeholder="pbx.acme.com:5060" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
                 </div>
+
+                <p className="text-xs text-muted-foreground">
+                  SIP Domain and SIP Server are configured on the linked IPBX.
+                </p>
                 
                 <div className="flex justify-end pt-4 border-t">
                   <Button type="submit" disabled={createExtension.isPending}>
@@ -302,9 +305,8 @@ export default function ExtensionsList() {
           <TableHeader>
             <TableRow>
               <TableHead>Ext</TableHead>
-              <TableHead>Client</TableHead>
-              <TableHead>Server</TableHead>
-              <TableHead>AI Engine</TableHead>
+              <TableHead>IPBX</TableHead>
+              <TableHead>AI Agent</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-[100px]"></TableHead>
             </TableRow>
@@ -344,9 +346,15 @@ export default function ExtensionsList() {
                       <span className="text-muted-foreground italic text-sm">Unassigned</span>
                     )}
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{ext.sipDomain}</TableCell>
                   <TableCell>
-                    <ProviderBadge provider={ext.agentConfig?.provider} />
+                    {ext.agentConfig ? (
+                      <div className="flex flex-col gap-0.5">
+                        <ProviderBadge provider={ext.agentConfig.provider} />
+                        <span className="text-xs text-muted-foreground">{ext.agentConfig.name}</span>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground italic text-sm">No agent</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     {(() => {

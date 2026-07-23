@@ -39,6 +39,9 @@ function parseRegistration(line: string): "registered" | "error" | null {
 function buildConfig(ext: Awaited<ReturnType<typeof getExtWithRelations>>) {
   if (!ext?.agentConfig) return null;
   const cfg = ext.agentConfig;
+  // SIP domain and server now come from the linked IPBX (client)
+  const sipDomain = ext.client?.sipDomain ?? "";
+  const sipServer = ext.client?.sipServer ?? "";
   const base: Record<string, unknown> = {
     mode: cfg.mode ?? "inbound",
     provider: cfg.provider,
@@ -46,8 +49,8 @@ function buildConfig(ext: Awaited<ReturnType<typeof getExtWithRelations>>) {
       username: ext.sipUsername,
       auth_id: ext.sipAuthId,
       password: ext.sipPassword,
-      domain: ext.sipDomain,
-      server: ext.sipServer,
+      domain: sipDomain,
+      server: sipServer,
     },
   };
   // API keys are NOT embedded in config.json — passed via environment variables only.
@@ -107,8 +110,8 @@ function buildEnv(ext: NonNullable<Awaited<ReturnType<typeof getExtWithRelations
     SIP_USERNAME: ext.sipUsername,
     SIP_AUTH_ID: ext.sipAuthId,
     SIP_PASSWORD: ext.sipPassword,
-    SIP_DOMAIN: ext.sipDomain,
-    SIP_SERVER: ext.sipServer,
+    SIP_DOMAIN: ext.client?.sipDomain ?? "",
+    SIP_SERVER: ext.client?.sipServer ?? "",
     [providerKey]: cfg.apiKey,
   };
 }
@@ -143,7 +146,10 @@ async function upsertDeployment(extensionId: number, patch: Partial<Omit<Deploym
 export async function startExtension(extensionId: number): Promise<void> {
   const ext = await getExtWithRelations(extensionId);
   if (!ext) throw new Error("Extension not found");
-  if (!ext.agentConfig) throw new Error("No AI agent config found. Add an Agent Config first.");
+  if (!ext.agentConfig) throw new Error("No AI agent config assigned. Select an Agent in the extension settings first.");
+  if (!ext.client?.sipDomain || !ext.client?.sipServer) {
+    throw new Error("IPBX SIP Domain and SIP Server must be configured on the linked IPBX before deploying.");
+  }
 
   // Stop existing process if running
   if (processes.has(extensionId)) {

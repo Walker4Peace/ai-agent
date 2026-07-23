@@ -2,13 +2,34 @@ import React from "react";
 import { Link, useParams } from "wouter";
 import {
   useGetExtension,
+  useUpdateExtension,
+  useListAgentConfigs,
   getGetExtensionQueryKey
 } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Phone, Server, Play, Square, RotateCcw, Terminal, Loader2, AlertCircle } from "lucide-react";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ArrowLeft, Phone, Server, Play, Square, RotateCcw, Terminal, Loader2, AlertCircle, Bot } from "lucide-react";
 import { ProviderBadge } from "@/components/provider-badge";
 import { useToast } from "@/hooks/use-toast";
 import { maskString } from "@/lib/utils";
@@ -22,16 +43,24 @@ import {
   statusColor,
 } from "@/hooks/use-deploy";
 
+const agentSchema = z.object({
+  agentConfigId: z.string(),
+});
+
 export default function ExtensionDetail() {
   const { id } = useParams();
   const extensionId = Number(id);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const [showLogs, setShowLogs] = React.useState(false);
 
   const { data: extension, isLoading } = useGetExtension(extensionId, {
     query: { enabled: !!extensionId, queryKey: getGetExtensionQueryKey(extensionId) }
   });
+
+  const { data: agentConfigs } = useListAgentConfigs();
+  const updateExtension = useUpdateExtension();
 
   const { data: deployStatus, isLoading: statusLoading } = useDeployStatus(extensionId, !!extensionId);
   const { data: logs } = useDeployLogs(extensionId, showLogs);
@@ -43,6 +72,19 @@ export default function ExtensionDetail() {
   const isRunning = deployStatus?.status === "registered" || deployStatus?.status === "starting";
   const isStarting = deployStatus?.status === "starting";
 
+  const agentForm = useForm<z.infer<typeof agentSchema>>({
+    resolver: zodResolver(agentSchema),
+    defaultValues: { agentConfigId: "none" },
+  });
+
+  React.useEffect(() => {
+    if (extension) {
+      agentForm.reset({
+        agentConfigId: extension.agentConfigId ? extension.agentConfigId.toString() : "none",
+      });
+    }
+  }, [extension, agentForm]);
+
   const handleAction = (
     action: typeof start | typeof stop | typeof restart,
     label: string
@@ -51,6 +93,31 @@ export default function ExtensionDetail() {
       onSuccess: () => toast({ title: `${label} succeeded` }),
       onError: (e) => toast({ variant: "destructive", title: `${label} failed`, description: e.message }),
     });
+  };
+
+  const handleAgentSave = (values: z.infer<typeof agentSchema>) => {
+    if (!extension) return;
+    const agentConfigId = values.agentConfigId === "none" ? null : Number(values.agentConfigId);
+    updateExtension.mutate(
+      {
+        id: extensionId,
+        data: {
+          extensionNumber: extension.extensionNumber,
+          sipUsername: extension.sipUsername,
+          sipAuthId: extension.sipAuthId,
+          sipPassword: extension.sipPassword,
+          clientId: extension.clientId ?? null,
+          agentConfigId,
+        }
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetExtensionQueryKey(extensionId) });
+          toast({ title: "Agent updated" });
+        },
+        onError: () => toast({ variant: "destructive", title: "Failed to update agent" }),
+      }
+    );
   };
 
   if (isLoading) return <div className="p-8 animate-pulse text-muted-foreground">Loading extension data...</div>;
@@ -91,7 +158,7 @@ export default function ExtensionDetail() {
               <CardDescription>
                 {hasAgentConfig
                   ? "Deploy and manage this extension's AI voice agent."
-                  : "Add an Agent Config below before deploying."}
+                  : "Assign an AI Agent below before deploying."}
               </CardDescription>
             </div>
             {deployStatus && (
@@ -193,8 +260,8 @@ export default function ExtensionDetail() {
                 ["SIP Username", extension.sipUsername],
                 ["SIP Auth ID", extension.sipAuthId],
                 ["SIP Password", maskString(extension.sipPassword)],
-                ["SIP Domain", extension.sipDomain],
-                ["SIP Server", extension.sipServer],
+                ["SIP Domain", extension.client?.sipDomain || "—  (set on IPBX)"],
+                ["SIP Server", extension.client?.sipServer || "—  (set on IPBX)"],
               ].map(([label, value]) => (
                 <div key={label} className="flex justify-between gap-4">
                   <dt className="text-muted-foreground font-medium shrink-0">{label}</dt>
@@ -202,45 +269,85 @@ export default function ExtensionDetail() {
                 </div>
               ))}
             </dl>
-          </CardContent>
-        </Card>
-
-        {/* AI Agent Config */}
-        <Card className="border-l-4 border-l-purple-500">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2"><Server className="h-4 w-4" /> AI Agent Config</CardTitle>
-              {extension.agentConfig && <ProviderBadge provider={extension.agentConfig.provider} />}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {!extension.agentConfig ? (
-              <div className="text-sm text-muted-foreground space-y-3">
-                <p>No AI config linked. Add one to enable deployment.</p>
-                <Link href={`/agent-configs/new?extensionId=${extensionId}`}>
-                  <Button size="sm">Add Agent Config</Button>
+            {extension.client && (
+              <div className="mt-3 pt-3 border-t">
+                <Link href={`/clients/${extension.clientId}`} className="text-xs text-primary hover:underline">
+                  ↗ {extension.client.name}
                 </Link>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <dl className="space-y-2 text-sm">
-                  <div className="flex justify-between"><dt className="text-muted-foreground font-medium">Provider</dt><dd className="capitalize">{extension.agentConfig.provider}</dd></div>
-                  <div className="flex justify-between"><dt className="text-muted-foreground font-medium">API Key</dt><dd className="font-mono text-xs">{maskString(extension.agentConfig.apiKey)}</dd></div>
-                  {extension.agentConfig.modelId && <div className="flex justify-between"><dt className="text-muted-foreground font-medium">Model</dt><dd className="text-xs">{extension.agentConfig.modelId}</dd></div>}
-                  {extension.agentConfig.voiceId && <div className="flex justify-between"><dt className="text-muted-foreground font-medium">Voice</dt><dd className="text-xs">{extension.agentConfig.voiceId}</dd></div>}
-                </dl>
-                <Separator />
-                <div className="flex justify-end">
-                  <Link href={`/agent-configs/${extension.agentConfig.id}/edit`}>
-                    <Button variant="outline" size="sm">Edit AI Config</Button>
-                  </Link>
-                </div>
               </div>
             )}
           </CardContent>
         </Card>
-      </div>
 
+        {/* AI Agent Assignment */}
+        <Card className="border-l-4 border-l-purple-500">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2"><Bot className="h-4 w-4" /> AI Agent</CardTitle>
+              {extension.agentConfig && <ProviderBadge provider={extension.agentConfig.provider} />}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Form {...agentForm}>
+              <form onSubmit={agentForm.handleSubmit(handleAgentSave)} className="space-y-4">
+                <FormField
+                  control={agentForm.control}
+                  name="agentConfigId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Assigned Agent</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select an agent…" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">No Agent</SelectItem>
+                          {agentConfigs?.map((a) => (
+                            <SelectItem key={a.id} value={a.id.toString()}>
+                              {a.name} ({a.provider})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {extension.agentConfig && (
+                  <>
+                    <Separator />
+                    <dl className="space-y-1.5 text-sm">
+                      <div className="flex justify-between"><dt className="text-muted-foreground">Name</dt><dd>{extension.agentConfig.name}</dd></div>
+                      <div className="flex justify-between"><dt className="text-muted-foreground">API Key</dt><dd className="font-mono text-xs">{maskString(extension.agentConfig.apiKey)}</dd></div>
+                      {extension.agentConfig.modelId && <div className="flex justify-between"><dt className="text-muted-foreground">Model</dt><dd className="text-xs">{extension.agentConfig.modelId}</dd></div>}
+                      {extension.agentConfig.voiceId && <div className="flex justify-between"><dt className="text-muted-foreground">Voice</dt><dd className="text-xs">{extension.agentConfig.voiceId}</dd></div>}
+                    </dl>
+                    <div className="flex justify-end">
+                      <Link href={`/agent-configs/${extension.agentConfig.id}/edit`}>
+                        <Button variant="ghost" size="sm" type="button">Edit Agent</Button>
+                      </Link>
+                    </div>
+                  </>
+                )}
+
+                <div className="flex justify-end gap-2 pt-2">
+                  {!extension.agentConfig && (
+                    <Link href="/agent-configs/new">
+                      <Button variant="outline" size="sm" type="button">Create New Agent</Button>
+                    </Link>
+                  )}
+                  <Button size="sm" type="submit" disabled={updateExtension.isPending}>
+                    {updateExtension.isPending ? "Saving…" : "Save"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

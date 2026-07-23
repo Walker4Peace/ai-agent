@@ -1,14 +1,13 @@
-import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
-import { extensionsTable } from "./extensions";
 
 export const AI_PROVIDERS = ["openai", "elevenlabs", "gemini", "deepgram", "cartesia"] as const;
 export type AiProvider = typeof AI_PROVIDERS[number];
 
 export const agentConfigsTable = pgTable("agent_configs", {
   id: serial("id").primaryKey(),
-  extensionId: integer("extension_id").notNull().references(() => extensionsTable.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
   provider: text("provider").$type<AiProvider>().notNull(),
   apiKey: text("api_key").notNull(),
   voiceId: text("voice_id"),

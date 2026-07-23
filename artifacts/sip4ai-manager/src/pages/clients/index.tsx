@@ -45,7 +45,8 @@ import { Plus, Building, Trash2, Edit } from "lucide-react";
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
   description: z.string().optional(),
-  serverIp: z.string().optional(),
+  sipDomain: z.string().optional(),
+  sipServer: z.string().optional(),
 });
 
 export default function ClientsList() {
@@ -62,7 +63,8 @@ export default function ClientsList() {
     defaultValues: {
       name: "",
       description: "",
-      serverIp: "",
+      sipDomain: "",
+      sipServer: "",
     },
   });
 
@@ -75,15 +77,15 @@ export default function ClientsList() {
           setOpen(false);
           form.reset();
           toast({
-            title: "Client created",
-            description: "The client has been added successfully.",
+            title: "IPBX created",
+            description: "The IPBX has been added successfully.",
           });
         },
-        onError: (error) => {
+        onError: () => {
           toast({
             variant: "destructive",
             title: "Error",
-            description: "Failed to create client.",
+            description: "Failed to create IPBX.",
           });
         },
       }
@@ -91,7 +93,7 @@ export default function ClientsList() {
   };
 
   const handleDelete = (id: number) => {
-    if (!window.confirm("Are you sure you want to delete this client?")) return;
+    if (!window.confirm("Are you sure you want to delete this IPBX?")) return;
     
     deleteClient.mutate(
       { id },
@@ -99,8 +101,8 @@ export default function ClientsList() {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListClientsQueryKey() });
           toast({
-            title: "Client deleted",
-            description: "The client has been removed.",
+            title: "IPBX deleted",
+            description: "The IPBX has been removed.",
           });
         },
       }
@@ -111,21 +113,21 @@ export default function ClientsList() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Clients</h1>
-          <p className="text-muted-foreground mt-1">Manage your PBX deployments and organizations.</p>
+          <h1 className="text-3xl font-bold tracking-tight">IPBXs</h1>
+          <p className="text-muted-foreground mt-1">Manage your Yeastar IPBX systems and their SIP credentials.</p>
         </div>
         
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2">
-              <Plus className="h-4 w-4" /> Add Client
+              <Plus className="h-4 w-4" /> Add IPBX
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add New Client</DialogTitle>
+              <DialogTitle>Add New IPBX</DialogTitle>
               <DialogDescription>
-                Create a new organization to manage their extensions.
+                Register a Yeastar IPBX and configure its SIP connection details.
               </DialogDescription>
             </DialogHeader>
             
@@ -136,23 +138,9 @@ export default function ClientsList() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Organization Name</FormLabel>
+                      <FormLabel>IPBX Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="Acme Corp" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="serverIp"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>PBX Server IP / Domain</FormLabel>
-                      <FormControl>
-                        <Input placeholder="sip.acme.com" {...field} />
+                        <Input placeholder="Office IPBX" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -161,12 +149,40 @@ export default function ClientsList() {
 
                 <FormField
                   control={form.control}
+                  name="sipDomain"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>SIP Domain</FormLabel>
+                      <FormControl>
+                        <Input placeholder="pbx.example.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="sipServer"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>SIP Server:Port</FormLabel>
+                      <FormControl>
+                        <Input placeholder="pbx.example.com:5060" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
                   name="description"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Notes</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Details about this deployment..." {...field} />
+                        <Textarea placeholder="Details about this IPBX..." {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -175,7 +191,7 @@ export default function ClientsList() {
                 
                 <div className="flex justify-end pt-4">
                   <Button type="submit" disabled={createClient.isPending}>
-                    {createClient.isPending ? "Creating..." : "Create Client"}
+                    {createClient.isPending ? "Creating..." : "Create IPBX"}
                   </Button>
                 </div>
               </form>
@@ -188,8 +204,8 @@ export default function ClientsList() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Client Name</TableHead>
-              <TableHead>Server</TableHead>
+              <TableHead>IPBX Name</TableHead>
+              <TableHead>SIP Domain</TableHead>
               <TableHead>Added</TableHead>
               <TableHead className="w-[100px]"></TableHead>
             </TableRow>
@@ -198,7 +214,7 @@ export default function ClientsList() {
             {isLoading ? (
               <TableRow>
                 <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
-                  Loading clients...
+                  Loading IPBXs...
                 </TableCell>
               </TableRow>
             ) : !clients || clients.length === 0 ? (
@@ -206,8 +222,8 @@ export default function ClientsList() {
                 <TableCell colSpan={4} className="text-center h-48 text-muted-foreground">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <Building className="h-8 w-8 text-muted-foreground/50" />
-                    <p>No clients found.</p>
-                    <Button variant="link" onClick={() => setOpen(true)}>Add your first client</Button>
+                    <p>No IPBXs found.</p>
+                    <Button variant="link" onClick={() => setOpen(true)}>Add your first IPBX</Button>
                   </div>
                 </TableCell>
               </TableRow>
@@ -219,7 +235,7 @@ export default function ClientsList() {
                       {client.name}
                     </Link>
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{client.serverIp || "—"}</TableCell>
+                  <TableCell className="font-mono text-xs">{client.sipDomain || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{formatDate(client.createdAt)}</TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-2">

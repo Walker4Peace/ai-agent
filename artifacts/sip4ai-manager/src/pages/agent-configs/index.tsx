@@ -36,7 +36,7 @@ export default function AgentConfigsList() {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListAgentConfigsQueryKey() });
           toast({
-            title: "Config deleted",
+            title: "Agent deleted",
             description: "The AI agent configuration has been removed.",
           });
         },
@@ -48,13 +48,13 @@ export default function AgentConfigsList() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Agent Configs</h1>
-          <p className="text-muted-foreground mt-1">AI models and prompts connected to SIP extensions.</p>
+          <h1 className="text-3xl font-bold tracking-tight">AI Agents</h1>
+          <p className="text-muted-foreground mt-1">Reusable AI agent configurations you can assign to any extension.</p>
         </div>
         
         <Link href="/agent-configs/new">
           <Button className="gap-2">
-            <Plus className="h-4 w-4" /> New Config
+            <Plus className="h-4 w-4" /> New Agent
           </Button>
         </Link>
       </div>
@@ -63,7 +63,7 @@ export default function AgentConfigsList() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Extension ID</TableHead>
+              <TableHead>Agent Name</TableHead>
               <TableHead>Provider</TableHead>
               <TableHead>Model / Voice</TableHead>
               <TableHead>Language</TableHead>
@@ -74,7 +74,7 @@ export default function AgentConfigsList() {
             {isLoading ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
-                  Loading agent configs...
+                  Loading agents...
                 </TableCell>
               </TableRow>
             ) : !configs || configs.length === 0 ? (
@@ -82,7 +82,7 @@ export default function AgentConfigsList() {
                 <TableCell colSpan={5} className="text-center h-48 text-muted-foreground">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <Server className="h-8 w-8 text-muted-foreground/50" />
-                    <p>No agent configs found.</p>
+                    <p>No agents configured yet.</p>
                     <Link href="/agent-configs/new">
                       <Button variant="link">Create your first AI agent</Button>
                     </Link>
@@ -92,11 +92,7 @@ export default function AgentConfigsList() {
             ) : (
               configs.map((config) => (
                 <TableRow key={config.id}>
-                  <TableCell className="font-medium font-mono text-primary">
-                    <Link href={`/extensions/${config.extensionId}`} className="hover:underline">
-                      Ext {config.extensionId}
-                    </Link>
-                  </TableCell>
+                  <TableCell className="font-medium">{config.name}</TableCell>
                   <TableCell>
                     <ProviderBadge provider={config.provider} />
                   </TableCell>

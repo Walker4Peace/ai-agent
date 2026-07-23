@@ -6,13 +6,12 @@ import { clientsTable } from "./clients";
 export const extensionsTable = pgTable("extensions", {
   id: serial("id").primaryKey(),
   clientId: integer("client_id").references(() => clientsTable.id, { onDelete: "set null" }),
+  agentConfigId: integer("agent_config_id"),
   extensionNumber: text("extension_number").notNull(),
   displayName: text("display_name"),
   sipUsername: text("sip_username").notNull(),
   sipAuthId: text("sip_auth_id").notNull(),
   sipPassword: text("sip_password").notNull(),
-  sipDomain: text("sip_domain").notNull(),
-  sipServer: text("sip_server").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
