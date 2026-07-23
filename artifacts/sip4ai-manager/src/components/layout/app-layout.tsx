@@ -34,10 +34,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         )}
       >
         <div className="flex h-16 shrink-0 items-center gap-2 px-6">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground font-bold">
-            S
-          </div>
-          <span className="text-lg font-bold tracking-tight">SIP4AI</span>
+          <img src="/logo.png" alt="SIP Agent" className="h-8 w-auto object-contain" />
+          <span className="text-lg font-bold tracking-tight">SIP Agent</span>
         </div>
 
         <nav className="mt-6 flex flex-col gap-1 px-3">
@@ -68,7 +66,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <Settings className="h-4 w-4" />
             </div>
             <div className="flex flex-col">
-              <span className="text-xs font-medium text-sidebar-foreground">Network Ops</span>
+              <span className="text-xs font-medium text-sidebar-foreground">AIO PROCESS</span>
               <span className="text-[10px] text-sidebar-foreground/50">v1.0.0</span>
             </div>
           </div>
@@ -80,10 +78,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         {/* Mobile Header */}
         <header className="flex h-16 shrink-0 items-center justify-between border-b bg-card px-4 lg:hidden">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold">
-              S
-            </div>
-            <span className="text-lg font-bold">SIP4AI</span>
+            <img src="/logo.png" alt="SIP Agent" className="h-8 w-auto object-contain" />
+            <span className="text-lg font-bold">SIP Agent</span>
           </div>
           <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(true)}>
             <Menu className="h-6 w-6" />

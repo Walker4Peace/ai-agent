@@ -2,15 +2,13 @@ import React from "react";
 import { Link, useParams } from "wouter";
 import {
   useGetExtension,
-  generateConfig,
-  generateServiceFile,
   getGetExtensionQueryKey
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Phone, Server, FileJson, TerminalSquare, Play, Square, RotateCcw, Terminal, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Phone, Server, Play, Square, RotateCcw, Terminal, Loader2, AlertCircle } from "lucide-react";
 import { ProviderBadge } from "@/components/provider-badge";
 import { useToast } from "@/hooks/use-toast";
 import { maskString } from "@/lib/utils";
@@ -30,8 +28,6 @@ export default function ExtensionDetail() {
   const { toast } = useToast();
 
   const [showLogs, setShowLogs] = React.useState(false);
-  const [downloadingJson, setDownloadingJson] = React.useState(false);
-  const [downloadingService, setDownloadingService] = React.useState(false);
 
   const { data: extension, isLoading } = useGetExtension(extensionId, {
     query: { enabled: !!extensionId, queryKey: getGetExtensionQueryKey(extensionId) }
@@ -55,38 +51,6 @@ export default function ExtensionDetail() {
       onSuccess: () => toast({ title: `${label} succeeded` }),
       onError: (e) => toast({ variant: "destructive", title: `${label} failed`, description: e.message }),
     });
-  };
-
-  const handleDownloadConfig = async () => {
-    try {
-      setDownloadingJson(true);
-      const res = await generateConfig(extensionId);
-      const blob = new Blob([JSON.stringify(res.content, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = res.filename || "config.json";
-      document.body.appendChild(a); a.click();
-      URL.revokeObjectURL(url); document.body.removeChild(a);
-      toast({ title: "Config Downloaded" });
-    } catch {
-      toast({ variant: "destructive", title: "Download Failed" });
-    } finally { setDownloadingJson(false); }
-  };
-
-  const handleDownloadService = async () => {
-    try {
-      setDownloadingService(true);
-      const res = await generateServiceFile(extensionId);
-      const blob = new Blob([res.content], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = res.filename || `sip4ai-${extension?.extensionNumber}.service`;
-      document.body.appendChild(a); a.click();
-      URL.revokeObjectURL(url); document.body.removeChild(a);
-      toast({ title: "Service File Downloaded" });
-    } catch {
-      toast({ variant: "destructive", title: "Download Failed" });
-    } finally { setDownloadingService(false); }
   };
 
   if (isLoading) return <div className="p-8 animate-pulse text-muted-foreground">Loading extension data...</div>;
@@ -122,7 +86,7 @@ export default function ExtensionDetail() {
             <div>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Server className="h-5 w-5" />
-                SIP4AI Agent
+                SIP Agent
               </CardTitle>
               <CardDescription>
                 {hasAgentConfig
@@ -277,25 +241,6 @@ export default function ExtensionDetail() {
         </Card>
       </div>
 
-      {/* Download Assets */}
-      {hasAgentConfig && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Manual Deployment Files</CardTitle>
-            <CardDescription>Download config files to deploy on a remote server manually.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex gap-4">
-            <Button variant="outline" className="gap-2 h-16 flex-1 flex-col items-center justify-center border-dashed" onClick={handleDownloadConfig} disabled={downloadingJson}>
-              <FileJson className="h-5 w-5 text-blue-500" />
-              <span className="text-xs">{downloadingJson ? "Generating…" : "config.json"}</span>
-            </Button>
-            <Button variant="outline" className="gap-2 h-16 flex-1 flex-col items-center justify-center border-dashed" onClick={handleDownloadService} disabled={downloadingService}>
-              <TerminalSquare className="h-5 w-5 text-purple-500" />
-              <span className="text-xs">{downloadingService ? "Generating…" : "Systemd Service"}</span>
-            </Button>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

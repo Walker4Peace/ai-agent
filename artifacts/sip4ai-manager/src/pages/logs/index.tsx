@@ -45,7 +45,7 @@ export default function LogsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Logs</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Live stdout/stderr output from deployed SIP4AI agent processes.
+          Live stdout/stderr output from deployed SIP Agent processes.
         </p>
       </div>
 
@@ -151,7 +151,7 @@ export default function LogsPage() {
             </span>
           </div>
           <CardDescription>
-            Captures stdout and stderr from the sip4ai binary. SIP registration, AI provider
+            Captures stdout and stderr from the SIP Agent process. SIP registration, AI provider
             connection, and any runtime errors appear here.
           </CardDescription>
         </CardHeader>
