@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
-import { Server, Users, Phone, Settings, Menu, Activity, ScrollText, Bot } from "lucide-react";
+import { Server, Users, Phone, Settings, Menu, Activity, ScrollText, Bot, PhoneCall } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -9,6 +9,7 @@ const navItems = [
   { name: "IPBXs", href: "/ipbxs", icon: Users },
   { name: "Extensions", href: "/extensions", icon: Phone },
   { name: "AI Agents", href: "/agent-configs", icon: Bot },
+  { name: "Call History", href: "/calls", icon: PhoneCall },
   { name: "Logs", href: "/logs", icon: ScrollText },
 ];
 

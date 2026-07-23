@@ -1,13 +1,17 @@
 import React from "react";
 import { Link } from "wouter";
-import { useGetStats, useListExtensions } from "@workspace/api-client-react";
+import { useGetStats, useListExtensions, useListClients } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, Phone, Server, Activity, Play, RotateCcw, Square, PhoneCall, PhoneOff, PhoneIncoming, Building } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Users, Phone, Server, Activity, Play, RotateCcw, Square, PhoneCall, PhoneOff, PhoneIncoming, Building, ChevronDown, ChevronRight } from "lucide-react";
 import { ProviderBadge } from "@/components/provider-badge";
-import { useListClients } from "@workspace/api-client-react";
 import { useAllDeployStatuses, useStartExtension, useStopExtension, useRestartExtension, statusLabel, statusColor, type DeployStatus } from "@/hooks/use-deploy";
 import { useToast } from "@/hooks/use-toast";
 
@@ -51,6 +55,82 @@ const EVENT_LABELS: Record<CallEvent["event"], string> = {
   connected_ai: "AI responded",
   error: "Error",
 };
+
+// Group events by callId, preserving order of first seen
+function groupEventsByCall(events: CallEvent[]): Map<string, CallEvent[]> {
+  const map = new Map<string, CallEvent[]>();
+  for (const ev of events) {
+    if (!map.has(ev.callId)) map.set(ev.callId, []);
+    map.get(ev.callId)!.push(ev);
+  }
+  return map;
+}
+
+function CallAccordionRow({ callId, legs, extNumber }: { callId: string; legs: CallEvent[]; extNumber?: string }) {
+  const [open, setOpen] = React.useState(false);
+
+  // Determine overall call state from legs
+  const hasEnded = legs.some(l => l.event === "ended");
+  const hasAI = legs.some(l => l.event === "connected_ai");
+  const hasError = legs.some(l => l.event === "error");
+  const firstLeg = legs[0];
+  const lastLeg = legs[legs.length - 1];
+
+  const stateLabel = hasError ? "Error" : hasEnded ? "Ended" : hasAI ? "AI Active" : "Ringing";
+  const stateColor = hasError
+    ? "text-red-500"
+    : hasEnded
+    ? "text-muted-foreground"
+    : hasAI
+    ? "text-purple-600"
+    : "text-blue-600";
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger asChild>
+        <div className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 cursor-pointer transition-colors select-none">
+          <div className="flex items-center gap-3">
+            {open ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+            <PhoneCall className="h-4 w-4 text-muted-foreground" />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium font-mono">call {callId.slice(0, 8)}…</span>
+                {extNumber && (
+                  <Badge variant="outline" className="text-xs font-mono px-1.5 py-0">ext {extNumber}</Badge>
+                )}
+                <span className={`text-xs font-medium ${stateColor}`}>{stateLabel}</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {legs.length} leg{legs.length !== 1 ? "s" : ""} · {new Date(firstLeg.timestamp).toLocaleTimeString()}
+                {hasEnded && ` → ${new Date(lastLeg.timestamp).toLocaleTimeString()}`}
+              </p>
+            </div>
+          </div>
+        </div>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="bg-muted/20 border-t divide-y">
+          {legs.map((leg, i) => (
+            <div key={i} className="flex items-start gap-3 px-8 py-2.5">
+              <div className="mt-0.5 shrink-0">{EVENT_ICONS[leg.event]}</div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium">{EVENT_LABELS[leg.event]}</span>
+                  {leg.detail && (
+                    <span className="text-xs text-muted-foreground italic truncate max-w-xs">"{leg.detail}"</span>
+                  )}
+                </div>
+              </div>
+              <time className="text-xs text-muted-foreground shrink-0 tabular-nums">
+                {new Date(leg.timestamp).toLocaleTimeString()}
+              </time>
+            </div>
+          ))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
 
 function AgentRow({ ext, status }: { ext: { id: number; extensionNumber: string; displayName?: string | null; agentConfig?: { provider: string } | null }; status: DeployStatus | undefined }) {
   const { toast } = useToast();
@@ -129,6 +209,7 @@ function AgentRow({ ext, status }: { ext: { id: number; extensionNumber: string;
 export default function Dashboard() {
   const { data: stats, isLoading } = useGetStats();
   const { data: extensions } = useListExtensions();
+  const { data: clients } = useListClients();
   const { data: allStatuses } = useAllDeployStatuses();
   const { data: callEvents } = useCallEvents();
 
@@ -140,6 +221,16 @@ export default function Dashboard() {
 
   const registeredCount = (allStatuses ?? []).filter(s => s.status === "registered").length;
   const runningCount = (allStatuses ?? []).filter(s => s.status === "registered" || s.status === "starting").length;
+
+  // Group call events by callId, take last 5 groups
+  const callGroups = React.useMemo(() => {
+    if (!callEvents?.events?.length) return [];
+    const grouped = groupEventsByCall(callEvents.events);
+    return Array.from(grouped.entries()).reverse(); // most recent first
+  }, [callEvents]);
+
+  const visibleCallGroups = callGroups.slice(0, 5);
+  const hasMoreCalls = callGroups.length > 5;
 
   if (isLoading || !stats) {
     return (
@@ -185,7 +276,7 @@ export default function Dashboard() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">🟢 Registered</CardTitle>
+            <CardTitle className="text-sm font-medium">Registered</CardTitle>
             <Activity className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
@@ -236,64 +327,82 @@ export default function Dashboard() {
                 <PhoneCall className="h-5 w-5" />
                 Calls Information
               </CardTitle>
-              <div className="flex items-center gap-2">
-                {callEvents && (
-                  <Badge variant={callEvents.activeCallCount > 0 ? "default" : "secondary"} className="gap-1">
-                    {callEvents.activeCallCount > 0 ? (
-                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
-                    ) : null}
-                    {callEvents.activeCallCount} active call{callEvents.activeCallCount !== 1 ? "s" : ""}
-                  </Badge>
-                )}
-                <span className="text-xs text-muted-foreground">auto-refreshes every 3s</span>
-              </div>
+              {callEvents && (
+                <Badge variant={callEvents.activeCallCount > 0 ? "default" : "secondary"} className="gap-1">
+                  {callEvents.activeCallCount > 0 && (
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+                  )}
+                  {callEvents.activeCallCount} active call{callEvents.activeCallCount !== 1 ? "s" : ""}
+                </Badge>
+              )}
             </div>
           </CardHeader>
           <CardContent>
-            {!callEvents || callEvents.events.length === 0 ? (
+            {visibleCallGroups.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <PhoneCall className="h-8 w-8 mx-auto mb-2 opacity-40" />
                 <p className="text-sm">No call events yet.</p>
                 <p className="text-xs mt-1">Events appear here when extensions are deployed and receive calls.</p>
               </div>
             ) : (
-              <div className="space-y-0 divide-y rounded-md border overflow-hidden">
-                {callEvents.events.map((ev, i) => {
-                  const ext = extensions?.find(e => e.id === ev.extensionId);
-                  return (
-                    <div key={i} className="flex items-start gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors">
-                      <div className="mt-0.5 shrink-0">{EVENT_ICONS[ev.event]}</div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-medium">{EVENT_LABELS[ev.event]}</span>
-                          {ext && (
-                            <Badge variant="outline" className="text-xs font-mono px-1.5 py-0">
-                              ext {ext.extensionNumber}
-                            </Badge>
-                          )}
-                          {ev.event !== "ended" && ev.event !== "invite" && ev.detail && (
-                            <span className="text-xs text-muted-foreground truncate max-w-xs italic">"{ev.detail}"</span>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground font-mono mt-0.5 truncate">
-                          call {ev.callId.slice(0, 8)}…
-                        </p>
-                      </div>
-                      <time className="text-xs text-muted-foreground shrink-0 tabular-nums">
-                        {new Date(ev.timestamp).toLocaleTimeString()}
-                      </time>
-                    </div>
-                  );
-                })}
-              </div>
+              <>
+                <div className="space-y-0 divide-y rounded-md border overflow-hidden">
+                  {visibleCallGroups.map(([callId, legs]) => {
+                    const ext = extensions?.find(e => e.id === legs[0]?.extensionId);
+                    return (
+                      <CallAccordionRow
+                        key={callId}
+                        callId={callId}
+                        legs={legs}
+                        extNumber={ext?.extensionNumber}
+                      />
+                    );
+                  })}
+                </div>
+                {(hasMoreCalls || callGroups.length > 0) && (
+                  <div className="mt-3 flex justify-center">
+                    <Link href="/calls">
+                      <Button variant="outline" size="sm">Show all calls</Button>
+                    </Link>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
 
-        {/* Provider Distribution */}
+        {/* IPBXs List */}
+        {clients && clients.length > 0 && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Building className="h-4 w-4" />
+                IPBXs List
+              </CardTitle>
+              <Link href="/ipbxs">
+                <Button variant="ghost" size="sm" className="text-xs h-7">View all</Button>
+              </Link>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {clients.map((c) => (
+                <Link key={c.id} href={`/ipbxs/${c.id}`}>
+                  <div className="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer">
+                    <div>
+                      <p className="text-sm font-medium">{c.name}</p>
+                      <p className="text-xs text-muted-foreground font-mono">{c.sipDomain || "—"}</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </Link>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Provider List */}
         {stats.extensionsByProvider && stats.extensionsByProvider.length > 0 && (
           <Card>
-            <CardHeader><CardTitle className="text-base">Provider Distribution</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">Provider List</CardTitle></CardHeader>
             <CardContent className="space-y-2">
               {stats.extensionsByProvider.map((p: { provider: string; count: number }) => (
                 <div key={p.provider} className="flex items-center justify-between">

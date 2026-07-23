@@ -265,6 +265,7 @@ export default function ExtensionsList() {
                         <FormControl>
                           <Input placeholder="1001" {...field} />
                         </FormControl>
+                        <p className="text-xs text-muted-foreground">Authentification Id</p>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -367,7 +368,7 @@ export default function ExtensionsList() {
                     <div className="flex items-center justify-end gap-2">
                       <Link href={`/extensions/${ext.id}`}>
                         <Button variant="ghost" size="sm" className="gap-1 text-primary hover:text-primary">
-                          Config <ArrowRight className="h-3 w-3" />
+                          Edit <ArrowRight className="h-3 w-3" />
                         </Button>
                       </Link>
                       <Button 

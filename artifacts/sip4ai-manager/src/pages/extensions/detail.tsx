@@ -4,6 +4,7 @@ import {
   useGetExtension,
   useUpdateExtension,
   useListAgentConfigs,
+  useListClients,
   getGetExtensionQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -14,6 +15,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -29,7 +36,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Phone, Server, Play, Square, RotateCcw, Terminal, Loader2, AlertCircle, Bot } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
+import { ArrowLeft, Phone, Server, Play, Square, RotateCcw, Terminal, Loader2, AlertCircle, Bot, Edit } from "lucide-react";
 import { ProviderBadge } from "@/components/provider-badge";
 import { useToast } from "@/hooks/use-toast";
 import { maskString } from "@/lib/utils";
@@ -47,6 +56,14 @@ const agentSchema = z.object({
   agentConfigId: z.string(),
 });
 
+const sipSchema = z.object({
+  extensionNumber: z.string().min(1, "Required"),
+  sipUsername: z.string().min(1, "Required"),
+  sipAuthId: z.string().min(1, "Required"),
+  sipPassword: z.string().min(1, "Required"),
+  clientId: z.string(),
+});
+
 export default function ExtensionDetail() {
   const { id } = useParams();
   const extensionId = Number(id);
@@ -54,12 +71,14 @@ export default function ExtensionDetail() {
   const queryClient = useQueryClient();
 
   const [showLogs, setShowLogs] = React.useState(false);
+  const [editSipOpen, setEditSipOpen] = React.useState(false);
 
   const { data: extension, isLoading } = useGetExtension(extensionId, {
     query: { enabled: !!extensionId, queryKey: getGetExtensionQueryKey(extensionId) }
   });
 
   const { data: agentConfigs } = useListAgentConfigs();
+  const { data: clients } = useListClients();
   const updateExtension = useUpdateExtension();
 
   const { data: deployStatus, isLoading: statusLoading } = useDeployStatus(extensionId, !!extensionId);
@@ -77,6 +96,17 @@ export default function ExtensionDetail() {
     defaultValues: { agentConfigId: "none" },
   });
 
+  const sipForm = useForm<z.infer<typeof sipSchema>>({
+    resolver: zodResolver(sipSchema),
+    defaultValues: {
+      extensionNumber: "",
+      sipUsername: "",
+      sipAuthId: "",
+      sipPassword: "",
+      clientId: "none",
+    },
+  });
+
   React.useEffect(() => {
     if (extension) {
       agentForm.reset({
@@ -84,6 +114,19 @@ export default function ExtensionDetail() {
       });
     }
   }, [extension, agentForm]);
+
+  // Populate SIP form when dialog opens
+  React.useEffect(() => {
+    if (editSipOpen && extension) {
+      sipForm.reset({
+        extensionNumber: extension.extensionNumber,
+        sipUsername: extension.sipUsername,
+        sipAuthId: extension.sipAuthId,
+        sipPassword: extension.sipPassword,
+        clientId: extension.clientId ? extension.clientId.toString() : "none",
+      });
+    }
+  }, [editSipOpen, extension, sipForm]);
 
   const handleAction = (
     action: typeof start | typeof stop | typeof restart,
@@ -116,6 +159,31 @@ export default function ExtensionDetail() {
           toast({ title: "Agent updated" });
         },
         onError: () => toast({ variant: "destructive", title: "Failed to update agent" }),
+      }
+    );
+  };
+
+  const handleSipSave = (values: z.infer<typeof sipSchema>) => {
+    if (!extension) return;
+    updateExtension.mutate(
+      {
+        id: extensionId,
+        data: {
+          extensionNumber: values.extensionNumber,
+          sipUsername: values.sipUsername,
+          sipAuthId: values.sipAuthId,
+          sipPassword: values.sipPassword,
+          clientId: values.clientId === "none" ? null : Number(values.clientId),
+          agentConfigId: extension.agentConfigId ?? null,
+        }
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetExtensionQueryKey(extensionId) });
+          setEditSipOpen(false);
+          toast({ title: "SIP credentials updated" });
+        },
+        onError: () => toast({ variant: "destructive", title: "Failed to update SIP credentials" }),
       }
     );
   };
@@ -250,8 +318,11 @@ export default function ExtensionDetail() {
       <div className="grid gap-6 md:grid-cols-2">
         {/* SIP Credentials */}
         <Card className="border-l-4 border-l-blue-500">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
             <CardTitle className="text-base flex items-center gap-2"><Phone className="h-4 w-4" /> SIP Credentials</CardTitle>
+            <Button variant="outline" size="sm" className="gap-2 h-8" onClick={() => setEditSipOpen(true)}>
+              <Edit className="h-3.5 w-3.5" /> Edit
+            </Button>
           </CardHeader>
           <CardContent>
             <dl className="space-y-2 text-sm">
@@ -348,6 +419,95 @@ export default function ExtensionDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit SIP Credentials Dialog */}
+      <Dialog open={editSipOpen} onOpenChange={setEditSipOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit SIP Credentials</DialogTitle>
+          </DialogHeader>
+          <Form {...sipForm}>
+            <form onSubmit={sipForm.handleSubmit(handleSipSave)} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={sipForm.control}
+                  name="extensionNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Extension Number</FormLabel>
+                      <FormControl><Input {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={sipForm.control}
+                  name="sipUsername"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>SIP Username</FormLabel>
+                      <FormControl><Input {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={sipForm.control}
+                  name="sipAuthId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>SIP Auth ID</FormLabel>
+                      <FormControl><Input {...field} /></FormControl>
+                      <p className="text-xs text-muted-foreground">Authentification Id</p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={sipForm.control}
+                  name="clientId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>IPBX</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select an IPBX" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">No IPBX</SelectItem>
+                          {clients?.map((c) => (
+                            <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={sipForm.control}
+                  name="sipPassword"
+                  render={({ field }) => (
+                    <FormItem className="col-span-2">
+                      <FormLabel>SIP Password</FormLabel>
+                      <FormControl><PasswordInput placeholder="Enter new password" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <Button type="button" variant="ghost" onClick={() => setEditSipOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={updateExtension.isPending}>
+                  {updateExtension.isPending ? "Saving…" : "Save Changes"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

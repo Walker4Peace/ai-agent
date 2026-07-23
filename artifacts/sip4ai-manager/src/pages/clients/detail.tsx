@@ -4,6 +4,7 @@ import {
   useGetClient,
   useUpdateClient,
   useListExtensions,
+  useUpdateExtension,
   getListExtensionsQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -15,6 +16,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -23,7 +33,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { ArrowLeft, Phone, Edit, Save, X } from "lucide-react";
+import { ArrowLeft, Phone, Edit, Save, X, Plus, Link2 } from "lucide-react";
 import { ProviderBadge } from "@/components/provider-badge";
 import { formatDate } from "@/lib/utils";
 import {
@@ -48,17 +58,40 @@ export default function ClientDetail() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [editing, setEditing] = React.useState(false);
+  const [linkDialogOpen, setLinkDialogOpen] = React.useState(false);
+  const [selectedExtIds, setSelectedExtIds] = React.useState<number[]>([]);
+  const [linking, setLinking] = React.useState(false);
 
   const { data: client, isLoading: isLoadingClient } = useGetClient(clientId, { 
     query: { enabled: !!clientId, queryKey: ['client', clientId] } 
   });
   
+  // Extensions already linked to this IPBX
   const { data: extensions, isLoading: isLoadingExtensions } = useListExtensions(
     { clientId }, 
     { query: { enabled: !!clientId, queryKey: getListExtensionsQueryKey({ clientId }) } }
   );
 
+  // All extensions (to find unlinked ones for the modal)
+  const { data: allExtensions } = useListExtensions(
+    {},
+    { query: { queryKey: getListExtensionsQueryKey({}) } }
+  );
+
+  // Extensions not yet linked to any IPBX or linked to this one
+  const availableExtensions = React.useMemo(() => {
+    if (!allExtensions) return [];
+    return allExtensions.filter(e => !e.clientId || e.clientId === clientId);
+  }, [allExtensions, clientId]);
+
+  // Already linked extension IDs
+  const linkedExtIds = React.useMemo(
+    () => new Set((extensions ?? []).map(e => e.id)),
+    [extensions]
+  );
+
   const updateClient = useUpdateClient();
+  const updateExtension = useUpdateExtension();
 
   const form = useForm<z.infer<typeof editSchema>>({
     resolver: zodResolver(editSchema),
@@ -76,6 +109,13 @@ export default function ClientDetail() {
     }
   }, [client, form]);
 
+  // Pre-select already linked extensions when dialog opens
+  React.useEffect(() => {
+    if (linkDialogOpen) {
+      setSelectedExtIds(Array.from(linkedExtIds) as number[]);
+    }
+  }, [linkDialogOpen, linkedExtIds]);
+
   const onSave = (values: z.infer<typeof editSchema>) => {
     updateClient.mutate(
       { id: clientId, data: values },
@@ -87,6 +127,67 @@ export default function ClientDetail() {
         },
         onError: () => toast({ variant: "destructive", title: "Error", description: "Failed to update IPBX." }),
       }
+    );
+  };
+
+  const handleLinkExtensions = async () => {
+    if (!allExtensions) return;
+    setLinking(true);
+
+    try {
+      // Determine which to link and which to unlink
+      const toLink = selectedExtIds.filter(eid => !linkedExtIds.has(eid));
+      const toUnlink = Array.from(linkedExtIds).filter(eid => !selectedExtIds.includes(eid));
+
+      const updates = [
+        ...toLink.map(eid => {
+          const ext = allExtensions.find(e => e.id === eid);
+          if (!ext) return null;
+          return updateExtension.mutateAsync({
+            id: eid,
+            data: {
+              extensionNumber: ext.extensionNumber,
+              sipUsername: ext.sipUsername,
+              sipAuthId: ext.sipAuthId,
+              sipPassword: ext.sipPassword,
+              clientId: clientId,
+              agentConfigId: ext.agentConfigId ?? null,
+            }
+          });
+        }),
+        ...toUnlink.map(eid => {
+          const ext = allExtensions.find(e => e.id === eid);
+          if (!ext) return null;
+          return updateExtension.mutateAsync({
+            id: eid,
+            data: {
+              extensionNumber: ext.extensionNumber,
+              sipUsername: ext.sipUsername,
+              sipAuthId: ext.sipAuthId,
+              sipPassword: ext.sipPassword,
+              clientId: null,
+              agentConfigId: ext.agentConfigId ?? null,
+            }
+          });
+        }),
+      ].filter(Boolean);
+
+      await Promise.all(updates);
+
+      queryClient.invalidateQueries({ queryKey: getListExtensionsQueryKey({ clientId }) });
+      queryClient.invalidateQueries({ queryKey: getListExtensionsQueryKey({}) });
+      setLinkDialogOpen(false);
+      toast({ title: "Extensions updated" });
+    } catch {
+      toast({ variant: "destructive", title: "Error", description: "Failed to update extensions." });
+    } finally {
+      setLinking(false);
+    }
+  };
+
+  const toggleExt = (eid: number) => {
+    setSelectedExtIds(prev =>
+      prev.includes(eid) ? prev.filter(x => x !== eid) : [...prev, eid]
     );
   };
 
@@ -110,21 +211,22 @@ export default function ClientDetail() {
           <h1 className="text-3xl font-bold tracking-tight">{client.name}</h1>
           <p className="text-muted-foreground mt-1 text-sm font-mono">{client.sipDomain || 'No SIP domain configured'}</p>
         </div>
-        {!editing ? (
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => setEditing(true)}>
-            <Edit className="h-4 w-4" /> Edit
-          </Button>
-        ) : (
-          <Button variant="ghost" size="sm" className="gap-2" onClick={() => setEditing(false)}>
-            <X className="h-4 w-4" /> Cancel
-          </Button>
-        )}
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
+        {/* IPBX Details Card — Edit button lives here */}
         <Card className="col-span-1 border-l-4 border-l-primary">
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-medium text-muted-foreground">IPBX Details</CardTitle>
+            {!editing ? (
+              <Button variant="outline" size="sm" className="gap-2 h-7 text-xs" onClick={() => setEditing(true)}>
+                <Edit className="h-3.5 w-3.5" /> Edit
+              </Button>
+            ) : (
+              <Button variant="ghost" size="sm" className="gap-2 h-7 text-xs" onClick={() => setEditing(false)}>
+                <X className="h-3.5 w-3.5" /> Cancel
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
             {editing ? (
@@ -187,12 +289,18 @@ export default function ClientDetail() {
           </CardContent>
         </Card>
 
+        {/* Extensions card */}
         <Card className="col-span-2">
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">Extensions</CardTitle>
-            <Link href="/extensions">
-              <Button variant="outline" size="sm" className="h-8">Add Extension</Button>
-            </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-2"
+              onClick={() => setLinkDialogOpen(true)}
+            >
+              <Link2 className="h-3.5 w-3.5" /> Add Extension
+            </Button>
           </CardHeader>
           <CardContent>
             {isLoadingExtensions ? (
@@ -201,6 +309,9 @@ export default function ClientDetail() {
               <div className="py-8 text-center border border-dashed rounded-md flex flex-col items-center gap-2">
                 <Phone className="h-6 w-6 text-muted-foreground/50" />
                 <p className="text-sm text-muted-foreground">No extensions configured for this IPBX.</p>
+                <Button variant="link" size="sm" onClick={() => setLinkDialogOpen(true)}>
+                  Link an extension
+                </Button>
               </div>
             ) : (
               <div className="rounded-md border">
@@ -240,6 +351,63 @@ export default function ClientDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Link Extensions Dialog */}
+      <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Link Extensions to {client.name}</DialogTitle>
+            <DialogDescription>
+              Select extensions to link to this IPBX. An extension can only be linked to one IPBX.
+            </DialogDescription>
+          </DialogHeader>
+
+          {availableExtensions.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">
+              <Phone className="h-8 w-8 mx-auto mb-2 opacity-40" />
+              <p className="text-sm">No available extensions.</p>
+              <p className="text-xs mt-1">Create extensions first from the Extensions page.</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {availableExtensions.map(ext => (
+                <div
+                  key={ext.id}
+                  className="flex items-center gap-3 rounded-md border px-3 py-2.5 hover:bg-muted/30 cursor-pointer transition-colors"
+                  onClick={() => toggleExt(ext.id)}
+                >
+                  <Checkbox
+                    checked={selectedExtIds.includes(ext.id)}
+                    onCheckedChange={() => toggleExt(ext.id)}
+                    onClick={e => e.stopPropagation()}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm font-medium">{ext.extensionNumber}</span>
+                      {ext.displayName && <span className="text-xs text-muted-foreground">{ext.displayName}</span>}
+                      {ext.clientId === clientId && (
+                        <Badge variant="secondary" className="text-xs py-0">linked</Badge>
+                      )}
+                    </div>
+                    {ext.agentConfig && (
+                      <div className="mt-0.5">
+                        <ProviderBadge provider={ext.agentConfig.provider} />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button variant="ghost" onClick={() => setLinkDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleLinkExtensions} disabled={linking || availableExtensions.length === 0}>
+              {linking ? "Saving…" : "Save"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -13,6 +13,7 @@ import ExtensionDetail from '@/pages/extensions/detail';
 import AgentConfigsList from '@/pages/agent-configs/index';
 import AgentConfigForm from '@/pages/agent-configs/form';
 import LogsPage from '@/pages/logs/index';
+import CallsPage from '@/pages/calls/index';
 
 // Minimal Not Found for now
 function NotFound() {
@@ -49,6 +50,7 @@ function Router() {
         <Route path="/agent-configs/new" component={AgentConfigForm} />
         <Route path="/agent-configs/:id/edit" component={AgentConfigForm} />
 
+        <Route path="/calls" component={CallsPage} />
         <Route path="/logs" component={LogsPage} />
         
         <Route component={NotFound} />
