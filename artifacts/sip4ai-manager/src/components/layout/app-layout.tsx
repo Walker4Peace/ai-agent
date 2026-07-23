@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
-import { Server, Users, Phone, Settings, Menu, Activity } from "lucide-react";
+import { Server, Users, Phone, Settings, Menu, Activity, ScrollText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -9,6 +9,7 @@ const navItems = [
   { name: "Clients", href: "/clients", icon: Users },
   { name: "Extensions", href: "/extensions", icon: Phone },
   { name: "Agent Configs", href: "/agent-configs", icon: Server },
+  { name: "Logs", href: "/logs", icon: ScrollText },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {

@@ -138,13 +138,13 @@ export default function AgentConfigForm() {
   }
 
   // Define fields to show based on provider
-  const showModel = ["openai", "gemini", "cartesia"].includes(selectedProvider);
-  const showVoiceId = ["elevenlabs", "cartesia", "openai", "gemini", "deepgram"].includes(selectedProvider); // OpenAI and Gemini have predefined voice strings, Deepgram too.
+  const showModel = ["openai", "gemini", "cartesia", "elevenlabs"].includes(selectedProvider);
+  const showVoiceId = ["elevenlabs", "cartesia", "openai", "gemini", "deepgram"].includes(selectedProvider);
   
   const getVoiceIdLabel = () => {
     switch (selectedProvider) {
       case "openai": return "Voice Name (alloy, echo, fable, onyx, nova, shimmer)";
-      case "elevenlabs": return "ElevenLabs Voice ID";
+      case "elevenlabs": return "ElevenLabs Voice ID (optional)";
       case "cartesia": return "Cartesia Voice ID";
       default: return "Voice ID or Name";
     }
@@ -153,9 +153,15 @@ export default function AgentConfigForm() {
   const getModelIdLabel = () => {
     switch (selectedProvider) {
       case "openai": return "Model (e.g. gpt-4o-realtime-preview)";
-      case "gemini": return "Model (e.g. models/gemini-1.5-flash)";
+      case "gemini": return "Model (e.g. gemini-2.0-flash-live-001)";
+      case "elevenlabs": return "ElevenLabs Agent ID";
       default: return "Model ID";
     }
+  };
+
+  const getModelIdPlaceholder = () => {
+    if (selectedProvider === "elevenlabs") return "agent_xxxxxxxxxxxxxxxx";
+    return "Leave blank for default";
   };
 
   return (
@@ -257,8 +263,13 @@ export default function AgentConfigForm() {
                         <FormItem>
                           <FormLabel>{getModelIdLabel()}</FormLabel>
                           <FormControl>
-                            <Input placeholder="Leave blank for default" {...field} />
+                            <Input placeholder={getModelIdPlaceholder()} {...field} />
                           </FormControl>
+                          {selectedProvider === "elevenlabs" && (
+                            <p className="text-xs text-muted-foreground">
+                              Find this in ElevenLabs → Conversational AI → your agent → Agent ID.
+                            </p>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}
