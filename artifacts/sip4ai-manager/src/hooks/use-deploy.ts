@@ -40,11 +40,11 @@ export function useAllDeployStatuses() {
   });
 }
 
-export function useDeployLogs(extensionId: number, enabled = false) {
+export function useDeployLogs(extensionId: number, enabled = false, live = false) {
   return useQuery<{ extensionId: number; lines: string[] }>({
     queryKey: ["deploy-logs", extensionId],
     queryFn: () => apiFetch(`/api/deploy/${extensionId}/logs`),
-    refetchInterval: enabled ? 2000 : false,
+    refetchInterval: (enabled && live) ? 2000 : false,
     enabled: enabled && !!extensionId,
   });
 }

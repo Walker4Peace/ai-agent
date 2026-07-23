@@ -207,7 +207,7 @@ function AgentRow({ ext, status }: { ext: { id: number; extensionNumber: string;
 }
 
 export default function Dashboard() {
-  const { data: stats, isLoading } = useGetStats();
+  const { data: stats, isLoading, isError: statsError } = useGetStats();
   const { data: extensions } = useListExtensions();
   const { data: clients } = useListClients();
   const { data: allStatuses } = useAllDeployStatuses();
@@ -232,7 +232,7 @@ export default function Dashboard() {
   const visibleCallGroups = callGroups.slice(0, 5);
   const hasMoreCalls = callGroups.length > 5;
 
-  if (isLoading || !stats) {
+  if (isLoading) {
     return (
       <div className="space-y-6 animate-pulse">
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
@@ -265,14 +265,14 @@ export default function Dashboard() {
             <CardTitle className="text-sm font-medium">Total IPBXs</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent><div className="text-3xl font-bold">{stats.totalClients}</div></CardContent>
+          <CardContent><div className="text-3xl font-bold">{stats?.totalClients ?? 0}</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Extensions</CardTitle>
             <Phone className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent><div className="text-3xl font-bold">{stats.totalExtensions}</div></CardContent>
+          <CardContent><div className="text-3xl font-bold">{stats?.totalExtensions ?? 0}</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -289,7 +289,7 @@ export default function Dashboard() {
             <CardTitle className="text-sm font-medium">Agent Configs</CardTitle>
             <Server className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent><div className="text-3xl font-bold">{stats.extensionsByProvider?.length ?? 0}</div></CardContent>
+          <CardContent><div className="text-3xl font-bold">{stats?.extensionsByProvider?.length ?? 0}</div></CardContent>
         </Card>
       </div>
 
@@ -400,7 +400,7 @@ export default function Dashboard() {
         )}
 
         {/* Provider List */}
-        {stats.extensionsByProvider && stats.extensionsByProvider.length > 0 && (
+        {stats?.extensionsByProvider && stats.extensionsByProvider.length > 0 && (
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle className="text-base">Provider List</CardTitle>

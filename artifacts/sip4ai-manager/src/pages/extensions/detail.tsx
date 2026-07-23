@@ -71,6 +71,7 @@ export default function ExtensionDetail() {
   const queryClient = useQueryClient();
 
   const [showLogs, setShowLogs] = React.useState(false);
+  const [liveLogs, setLiveLogs] = React.useState(false);
   const [editSipOpen, setEditSipOpen] = React.useState(false);
 
   const { data: extension, isLoading } = useGetExtension(extensionId, {
@@ -82,7 +83,7 @@ export default function ExtensionDetail() {
   const updateExtension = useUpdateExtension();
 
   const { data: deployStatus, isLoading: statusLoading } = useDeployStatus(extensionId, !!extensionId);
-  const { data: logs } = useDeployLogs(extensionId, showLogs);
+  const { data: logs } = useDeployLogs(extensionId, showLogs, liveLogs);
 
   const start = useStartExtension(extensionId);
   const stop = useStopExtension(extensionId);
@@ -300,8 +301,18 @@ export default function ExtensionDetail() {
           {showLogs && (
             <div className="rounded-md bg-black border border-muted overflow-hidden">
               <div className="flex items-center justify-between px-3 py-1.5 bg-muted/20 border-b border-muted text-xs text-muted-foreground">
-                <span>Process Logs</span>
-                <span>{logs?.lines.length ?? 0} lines</span>
+                <span>Process Logs · {logs?.lines.length ?? 0} lines</span>
+                <button
+                  onClick={() => setLiveLogs(v => !v)}
+                  className={`flex items-center gap-1.5 rounded px-2 py-0.5 font-medium transition-colors ${
+                    liveLogs
+                      ? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
+                      : "bg-muted/40 text-muted-foreground hover:bg-muted/60"
+                  }`}
+                >
+                  <span className={`inline-block h-1.5 w-1.5 rounded-full ${liveLogs ? "bg-green-400 animate-pulse" : "bg-muted-foreground"}`} />
+                  {liveLogs ? "Live" : "Paused"}
+                </button>
               </div>
               <div className="p-3 h-56 overflow-y-auto font-mono text-xs text-green-400 space-y-0.5">
                 {!logs?.lines.length ? (
