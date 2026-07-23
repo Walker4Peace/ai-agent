@@ -39,9 +39,11 @@ const formSchema = z.object({
   extensionId: z.string().min(1, "Select an extension"),
   provider: z.enum(["openai", "elevenlabs", "gemini", "deepgram", "cartesia"]),
   apiKey: z.string().min(1, "API Key is required"),
+  mode: z.enum(["inbound", "outbound"]).default("inbound"),
   voiceId: z.string().optional(),
   modelId: z.string().optional(),
   systemPrompt: z.string().optional(),
+  greeting: z.string().optional(),
   language: z.string().optional(),
   extraConfig: z.string().optional(),
 });
@@ -73,10 +75,12 @@ export default function AgentConfigForm() {
       extensionId: extParam || "",
       provider: "openai",
       apiKey: "",
+      mode: "inbound",
       voiceId: "",
       modelId: "",
       systemPrompt: "",
-      language: "en-US",
+      greeting: "",
+      language: "",
       extraConfig: "",
     },
   });
@@ -89,9 +93,11 @@ export default function AgentConfigForm() {
         extensionId: existingConfig.extensionId.toString(),
         provider: existingConfig.provider,
         apiKey: existingConfig.apiKey,
+        mode: (existingConfig.mode as "inbound" | "outbound") || "inbound",
         voiceId: existingConfig.voiceId || "",
         modelId: existingConfig.modelId || "",
         systemPrompt: existingConfig.systemPrompt || "",
+        greeting: existingConfig.greeting || "",
         language: existingConfig.language || "",
         extraConfig: existingConfig.extraConfig || "",
       });
@@ -139,7 +145,8 @@ export default function AgentConfigForm() {
 
   // Define fields to show based on provider
   const showModel = ["openai", "gemini", "cartesia", "elevenlabs"].includes(selectedProvider);
-  const showVoiceId = ["elevenlabs", "cartesia", "openai", "gemini", "deepgram"].includes(selectedProvider);
+  const showVoiceId = ["cartesia", "openai", "gemini", "deepgram"].includes(selectedProvider);
+  const showGreeting = ["openai", "elevenlabs", "gemini"].includes(selectedProvider);
   
   const getVoiceIdLabel = () => {
     switch (selectedProvider) {
@@ -181,7 +188,7 @@ export default function AgentConfigForm() {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
               
-              <div className="grid grid-cols-2 gap-6 pb-6 border-b">
+              <div className="grid grid-cols-3 gap-6 pb-6 border-b">
                 <FormField
                   control={form.control}
                   name="extensionId"
@@ -235,6 +242,28 @@ export default function AgentConfigForm() {
                     </FormItem>
                   )}
                 />
+
+                <FormField
+                  control={form.control}
+                  name="mode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Call Mode</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select mode" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="inbound">Inbound (answer calls)</SelectItem>
+                          <SelectItem value="outbound">Outbound (make calls)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
 
               <div className="space-y-6">
@@ -267,7 +296,7 @@ export default function AgentConfigForm() {
                           </FormControl>
                           {selectedProvider === "elevenlabs" && (
                             <p className="text-xs text-muted-foreground">
-                              Find this in ElevenLabs → Conversational AI → your agent → Agent ID.
+                              ElevenLabs → Conversational AI → your agent → Agent ID.
                             </p>
                           )}
                           <FormMessage />
@@ -292,19 +321,47 @@ export default function AgentConfigForm() {
                     />
                   )}
 
-                  <FormField
-                    control={form.control}
-                    name="language"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Language Code</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g. en-US" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {showGreeting && (
+                    <FormField
+                      control={form.control}
+                      name="greeting"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            {selectedProvider === "elevenlabs" ? "First Message" : "Greeting"}
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder={selectedProvider === "elevenlabs" ? "Hello! How can I help you today?" : "Hello!"}
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            {selectedProvider === "elevenlabs"
+                              ? "What the agent says at the start of the call (first_message)."
+                              : "Optional greeting spoken when the call connects."}
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  {selectedProvider !== "elevenlabs" && (
+                    <FormField
+                      control={form.control}
+                      name="language"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Language Code</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. en-US" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                 </div>
 
                 <FormField
@@ -312,7 +369,9 @@ export default function AgentConfigForm() {
                   name="systemPrompt"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>System Prompt</FormLabel>
+                      <FormLabel>
+                        {selectedProvider === "openai" ? "Instructions (System Prompt)" : "System Prompt"}
+                      </FormLabel>
                       <FormControl>
                         <Textarea 
                           placeholder="You are a helpful customer service assistant for Acme Corp..." 
@@ -321,7 +380,9 @@ export default function AgentConfigForm() {
                         />
                       </FormControl>
                       <FormDescription>
-                        Define the personality and knowledge for the AI agent.
+                        {selectedProvider === "elevenlabs"
+                          ? "Overrides the system prompt set on the ElevenLabs agent (optional)."
+                          : "Define the personality and knowledge for the AI agent."}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -342,7 +403,7 @@ export default function AgentConfigForm() {
                         />
                       </FormControl>
                       <FormDescription>
-                        Optional JSON object for provider-specific properties.
+                        Optional JSON merged into the root of config.json for advanced overrides.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>

@@ -26,6 +26,8 @@ function buildConfigJson(ext: ExtensionWithRelations): Record<string, unknown> |
   const { sipUsername, sipAuthId, sipPassword, sipDomain, sipServer } = ext;
 
   const base: Record<string, unknown> = {
+    mode: cfg.mode ?? "inbound",
+    provider: cfg.provider,
     sip: {
       username: sipUsername,
       auth_id: sipAuthId,
@@ -33,46 +35,45 @@ function buildConfigJson(ext: ExtensionWithRelations): Record<string, unknown> |
       domain: sipDomain,
       server: sipServer,
     },
-    provider: cfg.provider,
   };
 
+  // API keys are NOT embedded in config.json — they are passed via environment
+  // variables (ELEVEN_LABS_API_KEY, OPENAI_API_KEY, etc.) by the service runner.
   switch (cfg.provider as AiProviderKey) {
     case "openai":
       base["openai"] = {
-        api_key: cfg.apiKey,
-        model: cfg.modelId ?? "gpt-4o-realtime-preview",
+        ...(cfg.modelId ? { model: cfg.modelId } : { model: "gpt-4o-realtime-preview" }),
         voice: cfg.voiceId ?? "alloy",
-        ...(cfg.systemPrompt ? { system_prompt: cfg.systemPrompt } : {}),
+        ...(cfg.systemPrompt ? { instructions: cfg.systemPrompt } : {}),
+        ...(cfg.greeting ? { greeting: cfg.greeting } : {}),
       };
       break;
     case "elevenlabs":
       base["elevenlabs"] = {
-        api_key: cfg.apiKey,
         agent_id: cfg.modelId ?? "",
-        voice_id: cfg.voiceId ?? "",
-        ...(cfg.language ? { language: cfg.language } : {}),
+        ...(cfg.greeting ? { first_message: cfg.greeting } : {}),
+        ...(cfg.systemPrompt ? { system_prompt: cfg.systemPrompt } : {}),
       };
       break;
     case "gemini":
       base["gemini"] = {
-        api_key: cfg.apiKey,
         model: cfg.modelId ?? "gemini-2.0-flash-live-001",
         voice: cfg.voiceId ?? "Puck",
         ...(cfg.language ? { language: cfg.language } : {}),
         ...(cfg.systemPrompt ? { system_prompt: cfg.systemPrompt } : {}),
+        ...(cfg.greeting ? { greeting: cfg.greeting } : {}),
       };
       break;
     case "deepgram":
       base["deepgram"] = {
-        api_key: cfg.apiKey,
-        voice: cfg.voiceId ?? "aura-asteria-en",
-        ...(cfg.language ? { language: cfg.language } : {}),
+        model: cfg.modelId ?? "aura-2-thalia-en",
+        ...(cfg.voiceId ? { listen_model: cfg.voiceId } : {}),
         ...(cfg.systemPrompt ? { system_prompt: cfg.systemPrompt } : {}),
+        ...(cfg.language ? { language: cfg.language } : {}),
       };
       break;
     case "cartesia":
       base["cartesia"] = {
-        api_key: cfg.apiKey,
         voice_id: cfg.voiceId ?? "",
         model: cfg.modelId ?? "sonic-2",
         ...(cfg.language ? { language: cfg.language } : {}),

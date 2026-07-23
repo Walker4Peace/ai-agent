@@ -40,6 +40,8 @@ function buildConfig(ext: Awaited<ReturnType<typeof getExtWithRelations>>) {
   if (!ext?.agentConfig) return null;
   const cfg = ext.agentConfig;
   const base: Record<string, unknown> = {
+    mode: cfg.mode ?? "inbound",
+    provider: cfg.provider,
     sip: {
       username: ext.sipUsername,
       auth_id: ext.sipAuthId,
@@ -47,23 +49,48 @@ function buildConfig(ext: Awaited<ReturnType<typeof getExtWithRelations>>) {
       domain: ext.sipDomain,
       server: ext.sipServer,
     },
-    provider: cfg.provider,
   };
+  // API keys are NOT embedded in config.json — passed via environment variables only.
   switch (cfg.provider as AiProviderKey) {
     case "openai":
-      base["openai"] = { api_key: cfg.apiKey, model: cfg.modelId ?? "gpt-4o-realtime-preview", voice: cfg.voiceId ?? "alloy", ...(cfg.systemPrompt ? { system_prompt: cfg.systemPrompt } : {}) };
+      base["openai"] = {
+        model: cfg.modelId ?? "gpt-4o-realtime-preview",
+        voice: cfg.voiceId ?? "alloy",
+        ...(cfg.systemPrompt ? { instructions: cfg.systemPrompt } : {}),
+        ...(cfg.greeting ? { greeting: cfg.greeting } : {}),
+      };
       break;
     case "elevenlabs":
-      base["elevenlabs"] = { api_key: cfg.apiKey, agent_id: cfg.modelId ?? "", voice_id: cfg.voiceId ?? "", ...(cfg.language ? { language: cfg.language } : {}) };
+      base["elevenlabs"] = {
+        agent_id: cfg.modelId ?? "",
+        ...(cfg.greeting ? { first_message: cfg.greeting } : {}),
+        ...(cfg.systemPrompt ? { system_prompt: cfg.systemPrompt } : {}),
+      };
       break;
     case "gemini":
-      base["gemini"] = { api_key: cfg.apiKey, model: cfg.modelId ?? "gemini-2.0-flash-live-001", voice: cfg.voiceId ?? "Puck", ...(cfg.language ? { language: cfg.language } : {}), ...(cfg.systemPrompt ? { system_prompt: cfg.systemPrompt } : {}) };
+      base["gemini"] = {
+        model: cfg.modelId ?? "gemini-2.0-flash-live-001",
+        voice: cfg.voiceId ?? "Puck",
+        ...(cfg.language ? { language: cfg.language } : {}),
+        ...(cfg.systemPrompt ? { system_prompt: cfg.systemPrompt } : {}),
+        ...(cfg.greeting ? { greeting: cfg.greeting } : {}),
+      };
       break;
     case "deepgram":
-      base["deepgram"] = { api_key: cfg.apiKey, voice: cfg.voiceId ?? "aura-asteria-en", ...(cfg.language ? { language: cfg.language } : {}), ...(cfg.systemPrompt ? { system_prompt: cfg.systemPrompt } : {}) };
+      base["deepgram"] = {
+        model: cfg.modelId ?? "aura-2-thalia-en",
+        ...(cfg.voiceId ? { listen_model: cfg.voiceId } : {}),
+        ...(cfg.systemPrompt ? { system_prompt: cfg.systemPrompt } : {}),
+        ...(cfg.language ? { language: cfg.language } : {}),
+      };
       break;
     case "cartesia":
-      base["cartesia"] = { api_key: cfg.apiKey, voice_id: cfg.voiceId ?? "", model: cfg.modelId ?? "sonic-2", ...(cfg.language ? { language: cfg.language } : {}), ...(cfg.systemPrompt ? { system_prompt: cfg.systemPrompt } : {}) };
+      base["cartesia"] = {
+        voice_id: cfg.voiceId ?? "",
+        model: cfg.modelId ?? "sonic-2",
+        ...(cfg.language ? { language: cfg.language } : {}),
+        ...(cfg.systemPrompt ? { system_prompt: cfg.systemPrompt } : {}),
+      };
       break;
   }
   if (cfg.extraConfig) {

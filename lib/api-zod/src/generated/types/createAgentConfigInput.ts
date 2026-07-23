@@ -14,6 +14,8 @@ export interface CreateAgentConfigInput {
   voiceId?: string | null;
   modelId?: string | null;
   systemPrompt?: string | null;
+  greeting?: string | null;
   language?: string | null;
+  mode?: string | null;
   extraConfig?: string | null;
 }

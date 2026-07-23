@@ -329,7 +329,9 @@ export const ListAgentConfigsResponseItem = zod.object({
   "voiceId": zod.string().nullish(),
   "modelId": zod.string().nullish(),
   "systemPrompt": zod.string().nullish(),
+  "greeting": zod.string().nullish(),
   "language": zod.string().nullish(),
+  "mode": zod.string().nullish(),
   "extraConfig": zod.string().nullish().describe('JSON string for provider-specific extra fields'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
@@ -347,7 +349,9 @@ export const CreateAgentConfigBody = zod.object({
   "voiceId": zod.string().nullish(),
   "modelId": zod.string().nullish(),
   "systemPrompt": zod.string().nullish(),
+  "greeting": zod.string().nullish(),
   "language": zod.string().nullish(),
+  "mode": zod.string().nullish(),
   "extraConfig": zod.string().nullish()
 })
 
@@ -359,7 +363,9 @@ export const CreateAgentConfigResponse = zod.object({
   "voiceId": zod.string().nullish(),
   "modelId": zod.string().nullish(),
   "systemPrompt": zod.string().nullish(),
+  "greeting": zod.string().nullish(),
   "language": zod.string().nullish(),
+  "mode": zod.string().nullish(),
   "extraConfig": zod.string().nullish().describe('JSON string for provider-specific extra fields'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
@@ -381,7 +387,9 @@ export const GetAgentConfigResponse = zod.object({
   "voiceId": zod.string().nullish(),
   "modelId": zod.string().nullish(),
   "systemPrompt": zod.string().nullish(),
+  "greeting": zod.string().nullish(),
   "language": zod.string().nullish(),
+  "mode": zod.string().nullish(),
   "extraConfig": zod.string().nullish().describe('JSON string for provider-specific extra fields'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
@@ -402,7 +410,9 @@ export const UpdateAgentConfigBody = zod.object({
   "voiceId": zod.string().nullish(),
   "modelId": zod.string().nullish(),
   "systemPrompt": zod.string().nullish(),
+  "greeting": zod.string().nullish(),
   "language": zod.string().nullish(),
+  "mode": zod.string().nullish(),
   "extraConfig": zod.string().nullish()
 })
 
@@ -414,7 +424,9 @@ export const UpdateAgentConfigResponse = zod.object({
   "voiceId": zod.string().nullish(),
   "modelId": zod.string().nullish(),
   "systemPrompt": zod.string().nullish(),
+  "greeting": zod.string().nullish(),
   "language": zod.string().nullish(),
+  "mode": zod.string().nullish(),
   "extraConfig": zod.string().nullish().describe('JSON string for provider-specific extra fields'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()

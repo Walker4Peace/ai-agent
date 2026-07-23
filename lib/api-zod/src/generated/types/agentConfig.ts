@@ -15,7 +15,9 @@ export interface AgentConfig {
   voiceId?: string | null;
   modelId?: string | null;
   systemPrompt?: string | null;
+  greeting?: string | null;
   language?: string | null;
+  mode?: string | null;
   /** JSON string for provider-specific extra fields */
   extraConfig?: string | null;
   createdAt: Date;
