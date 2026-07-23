@@ -3,20 +3,30 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: SIP4AI Configuration Manager API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: clients
+    description: Client/installation management
+  - name: extensions
+    description: SIP extension management
+  - name: agentConfigs
+    description: AI agent configuration per extension
+  - name: generate
+    description: Config file generation
+  - name: stats
+    description: Dashboard statistics
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +34,359 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /stats:
+    get:
+      operationId: getStats
+      tags: [stats]
+      summary: Get dashboard statistics
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /clients:
+    get:
+      operationId: listClients
+      tags: [clients]
+      summary: List all clients
+      responses:
+        "200":
+          description: List of clients
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Client"
+    post:
+      operationId: createClient
+      tags: [clients]
+      summary: Create a client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateClientInput"
+      responses:
+        "201":
+          description: Created client
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+
+  /clients/{id}:
+    get:
+      operationId: getClient
+      tags: [clients]
+      summary: Get a client by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Client
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateClient
+      tags: [clients]
+      summary: Update a client
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateClientInput"
+      responses:
+        "200":
+          description: Updated client
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+    delete:
+      operationId: deleteClient
+      tags: [clients]
+      summary: Delete a client
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /extensions:
+    get:
+      operationId: listExtensions
+      tags: [extensions]
+      summary: List all extensions
+      parameters:
+        - name: clientId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of extensions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Extension"
+    post:
+      operationId: createExtension
+      tags: [extensions]
+      summary: Create an extension
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateExtensionInput"
+      responses:
+        "201":
+          description: Created extension
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Extension"
+
+  /extensions/{id}:
+    get:
+      operationId: getExtension
+      tags: [extensions]
+      summary: Get an extension by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Extension
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Extension"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateExtension
+      tags: [extensions]
+      summary: Update an extension
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateExtensionInput"
+      responses:
+        "200":
+          description: Updated extension
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Extension"
+    delete:
+      operationId: deleteExtension
+      tags: [extensions]
+      summary: Delete an extension
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /agent-configs:
+    get:
+      operationId: listAgentConfigs
+      tags: [agentConfigs]
+      summary: List all agent configs
+      parameters:
+        - name: extensionId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of agent configs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentConfig"
+    post:
+      operationId: createAgentConfig
+      tags: [agentConfigs]
+      summary: Create an agent config
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAgentConfigInput"
+      responses:
+        "201":
+          description: Created agent config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentConfig"
+
+  /agent-configs/{id}:
+    get:
+      operationId: getAgentConfig
+      tags: [agentConfigs]
+      summary: Get an agent config by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Agent config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentConfig"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateAgentConfig
+      tags: [agentConfigs]
+      summary: Update an agent config
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAgentConfigInput"
+      responses:
+        "200":
+          description: Updated agent config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentConfig"
+    delete:
+      operationId: deleteAgentConfig
+      tags: [agentConfigs]
+      summary: Delete an agent config
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /generate/{extensionId}/config:
+    get:
+      operationId: generateConfig
+      tags: [generate]
+      summary: Generate config.json for an extension
+      parameters:
+        - name: extensionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Generated config JSON
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedConfig"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /generate/{extensionId}/service:
+    get:
+      operationId: generateServiceFile
+      tags: [generate]
+      summary: Generate systemd service file content for an extension
+      parameters:
+        - name: extensionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Generated systemd service file content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedServiceFile"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +397,253 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    DashboardStats:
+      type: object
+      properties:
+        totalClients:
+          type: integer
+        totalExtensions:
+          type: integer
+        totalAgentConfigs:
+          type: integer
+        extensionsByProvider:
+          type: array
+          items:
+            type: object
+            properties:
+              provider:
+                type: string
+              count:
+                type: integer
+            required:
+              - provider
+              - count
+      required:
+        - totalClients
+        - totalExtensions
+        - totalAgentConfigs
+        - extensionsByProvider
+
+    Client:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        serverIp:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - createdAt
+        - updatedAt
+
+    CreateClientInput:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        serverIp:
+          type: string
+          nullable: true
+      required:
+        - name
+
+    Extension:
+      type: object
+      properties:
+        id:
+          type: integer
+        clientId:
+          type: integer
+          nullable: true
+        extensionNumber:
+          type: string
+        displayName:
+          type: string
+          nullable: true
+        sipUsername:
+          type: string
+        sipAuthId:
+          type: string
+        sipPassword:
+          type: string
+        sipDomain:
+          type: string
+        sipServer:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        client:
+          $ref: "#/components/schemas/Client"
+          nullable: true
+        agentConfig:
+          $ref: "#/components/schemas/AgentConfig"
+          nullable: true
+      required:
+        - id
+        - extensionNumber
+        - sipUsername
+        - sipAuthId
+        - sipPassword
+        - sipDomain
+        - sipServer
+        - createdAt
+        - updatedAt
+
+    CreateExtensionInput:
+      type: object
+      properties:
+        clientId:
+          type: integer
+          nullable: true
+        extensionNumber:
+          type: string
+        displayName:
+          type: string
+          nullable: true
+        sipUsername:
+          type: string
+        sipAuthId:
+          type: string
+        sipPassword:
+          type: string
+        sipDomain:
+          type: string
+        sipServer:
+          type: string
+      required:
+        - extensionNumber
+        - sipUsername
+        - sipAuthId
+        - sipPassword
+        - sipDomain
+        - sipServer
+
+    AiProvider:
+      type: string
+      enum:
+        - openai
+        - elevenlabs
+        - gemini
+        - deepgram
+        - cartesia
+
+    AgentConfig:
+      type: object
+      properties:
+        id:
+          type: integer
+        extensionId:
+          type: integer
+        provider:
+          $ref: "#/components/schemas/AiProvider"
+        apiKey:
+          type: string
+        voiceId:
+          type: string
+          nullable: true
+        modelId:
+          type: string
+          nullable: true
+        systemPrompt:
+          type: string
+          nullable: true
+        language:
+          type: string
+          nullable: true
+        extraConfig:
+          type: string
+          nullable: true
+          description: JSON string for provider-specific extra fields
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - extensionId
+        - provider
+        - apiKey
+        - createdAt
+        - updatedAt
+
+    CreateAgentConfigInput:
+      type: object
+      properties:
+        extensionId:
+          type: integer
+        provider:
+          $ref: "#/components/schemas/AiProvider"
+        apiKey:
+          type: string
+        voiceId:
+          type: string
+          nullable: true
+        modelId:
+          type: string
+          nullable: true
+        systemPrompt:
+          type: string
+          nullable: true
+        language:
+          type: string
+          nullable: true
+        extraConfig:
+          type: string
+          nullable: true
+      required:
+        - extensionId
+        - provider
+        - apiKey
+
+    GeneratedConfig:
+      type: object
+      properties:
+        filename:
+          type: string
+        content:
+          type: object
+          additionalProperties: true
+      required:
+        - filename
+        - content
+
+    GeneratedServiceFile:
+      type: object
+      properties:
+        filename:
+          type: string
+        content:
+          type: string
+      required:
+        - filename
+        - content

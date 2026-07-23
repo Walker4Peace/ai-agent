@@ -1,0 +1,249 @@
+import React from "react";
+import { Link } from "wouter";
+import { 
+  useListClients, 
+  useCreateClient, 
+  useDeleteClient,
+  getListClientsQueryKey
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { useToast } from "@/hooks/use-toast";
+
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { formatDate } from "@/lib/utils";
+import { Plus, Building, Trash2, Edit } from "lucide-react";
+
+const formSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters."),
+  description: z.string().optional(),
+  serverIp: z.string().optional(),
+});
+
+export default function ClientsList() {
+  const { data: clients, isLoading } = useListClients();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [open, setOpen] = React.useState(false);
+
+  const createClient = useCreateClient();
+  const deleteClient = useDeleteClient();
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      serverIp: "",
+    },
+  });
+
+  const onSubmit = (values: z.infer<typeof formSchema>) => {
+    createClient.mutate(
+      { data: values },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListClientsQueryKey() });
+          setOpen(false);
+          form.reset();
+          toast({
+            title: "Client created",
+            description: "The client has been added successfully.",
+          });
+        },
+        onError: (error) => {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to create client.",
+          });
+        },
+      }
+    );
+  };
+
+  const handleDelete = (id: number) => {
+    if (!window.confirm("Are you sure you want to delete this client?")) return;
+    
+    deleteClient.mutate(
+      { id },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListClientsQueryKey() });
+          toast({
+            title: "Client deleted",
+            description: "The client has been removed.",
+          });
+        },
+      }
+    );
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Clients</h1>
+          <p className="text-muted-foreground mt-1">Manage your PBX deployments and organizations.</p>
+        </div>
+        
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" /> Add Client
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Client</DialogTitle>
+              <DialogDescription>
+                Create a new organization to manage their extensions.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Organization Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Acme Corp" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="serverIp"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>PBX Server IP / Domain</FormLabel>
+                      <FormControl>
+                        <Input placeholder="sip.acme.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notes</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Details about this deployment..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="flex justify-end pt-4">
+                  <Button type="submit" disabled={createClient.isPending}>
+                    {createClient.isPending ? "Creating..." : "Create Client"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="rounded-md border bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Client Name</TableHead>
+              <TableHead>Server</TableHead>
+              <TableHead>Added</TableHead>
+              <TableHead className="w-[100px]"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
+                  Loading clients...
+                </TableCell>
+              </TableRow>
+            ) : !clients || clients.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center h-48 text-muted-foreground">
+                  <div className="flex flex-col items-center justify-center gap-2">
+                    <Building className="h-8 w-8 text-muted-foreground/50" />
+                    <p>No clients found.</p>
+                    <Button variant="link" onClick={() => setOpen(true)}>Add your first client</Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : (
+              clients.map((client) => (
+                <TableRow key={client.id}>
+                  <TableCell className="font-medium">
+                    <Link href={`/clients/${client.id}`} className="hover:underline flex items-center gap-2">
+                      {client.name}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">{client.serverIp || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{formatDate(client.createdAt)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center justify-end gap-2">
+                      <Link href={`/clients/${client.id}`}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleDelete(client.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}

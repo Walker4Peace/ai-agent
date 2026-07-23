@@ -1,0 +1,25 @@
+import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod/v4";
+import { extensionsTable } from "./extensions";
+
+export const AI_PROVIDERS = ["openai", "elevenlabs", "gemini", "deepgram", "cartesia"] as const;
+export type AiProvider = typeof AI_PROVIDERS[number];
+
+export const agentConfigsTable = pgTable("agent_configs", {
+  id: serial("id").primaryKey(),
+  extensionId: integer("extension_id").notNull().references(() => extensionsTable.id, { onDelete: "cascade" }),
+  provider: text("provider").$type<AiProvider>().notNull(),
+  apiKey: text("api_key").notNull(),
+  voiceId: text("voice_id"),
+  modelId: text("model_id"),
+  systemPrompt: text("system_prompt"),
+  language: text("language"),
+  extraConfig: text("extra_config"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertAgentConfigSchema = createInsertSchema(agentConfigsTable).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertAgentConfig = z.infer<typeof insertAgentConfigSchema>;
+export type AgentConfig = typeof agentConfigsTable.$inferSelect;
