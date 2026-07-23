@@ -271,7 +271,7 @@ export default function ExtensionDetail() {
             </dl>
             {extension.client && (
               <div className="mt-3 pt-3 border-t">
-                <Link href={`/clients/${extension.clientId}`} className="text-xs text-primary hover:underline">
+                <Link href={`/ipbxs/${extension.clientId}`} className="text-xs text-primary hover:underline">
                   ↗ {extension.client.name}
                 </Link>
               </div>

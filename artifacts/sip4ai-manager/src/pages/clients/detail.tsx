@@ -101,7 +101,7 @@ export default function ClientDetail() {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center gap-4">
-        <Link href="/clients">
+        <Link href="/ipbxs">
           <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-5 w-5" />
           </Button>

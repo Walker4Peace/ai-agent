@@ -39,8 +39,8 @@ function Router() {
       <Switch>
         <Route path="/" component={Dashboard} />
         
-        <Route path="/clients" component={ClientsList} />
-        <Route path="/clients/:id" component={ClientDetail} />
+        <Route path="/ipbxs" component={ClientsList} />
+        <Route path="/ipbxs/:id" component={ClientDetail} />
         
         <Route path="/extensions" component={ExtensionsList} />
         <Route path="/extensions/:id" component={ExtensionDetail} />

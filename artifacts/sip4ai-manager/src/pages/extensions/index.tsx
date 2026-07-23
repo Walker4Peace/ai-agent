@@ -339,7 +339,7 @@ export default function ExtensionsList() {
                   </TableCell>
                   <TableCell>
                     {ext.client ? (
-                      <Link href={`/clients/${ext.clientId}`} className="hover:underline text-sm font-medium">
+                      <Link href={`/ipbxs/${ext.clientId}`} className="hover:underline text-sm font-medium">
                         {ext.client.name}
                       </Link>
                     ) : (

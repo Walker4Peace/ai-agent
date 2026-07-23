@@ -231,7 +231,7 @@ export default function ClientsList() {
               clients.map((client) => (
                 <TableRow key={client.id}>
                   <TableCell className="font-medium">
-                    <Link href={`/clients/${client.id}`} className="hover:underline flex items-center gap-2">
+                    <Link href={`/ipbxs/${client.id}`} className="hover:underline flex items-center gap-2">
                       {client.name}
                     </Link>
                   </TableCell>
@@ -239,7 +239,7 @@ export default function ClientsList() {
                   <TableCell className="text-muted-foreground">{formatDate(client.createdAt)}</TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-2">
-                      <Link href={`/clients/${client.id}`}>
+                      <Link href={`/ipbxs/${client.id}`}>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
                           <Edit className="h-4 w-4" />
                         </Button>

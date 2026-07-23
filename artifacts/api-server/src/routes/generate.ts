@@ -23,7 +23,10 @@ const PROVIDER_ENV_KEYS: Record<AiProviderKey, string> = {
 function buildConfigJson(ext: ExtensionWithRelations): Record<string, unknown> | null {
   if (!ext.agentConfig) return null;
   const cfg = ext.agentConfig;
-  const { sipUsername, sipAuthId, sipPassword, sipDomain, sipServer } = ext;
+  const { sipUsername, sipAuthId, sipPassword } = ext;
+  // SIP domain and server come from the linked IPBX (client), not the extension
+  const sipDomain = ext.client?.sipDomain ?? "";
+  const sipServer = ext.client?.sipServer ?? "";
 
   const base: Record<string, unknown> = {
     mode: cfg.mode ?? "inbound",
@@ -97,9 +100,18 @@ function buildConfigJson(ext: ExtensionWithRelations): Record<string, unknown> |
 function buildServiceFile(ext: ExtensionWithRelations): string | null {
   if (!ext.agentConfig) return null;
   const cfg = ext.agentConfig;
-  const { extensionNumber, sipUsername, sipAuthId, sipPassword, sipDomain, sipServer } = ext;
+  const { extensionNumber, sipUsername, sipAuthId, sipPassword } = ext;
+  // SIP domain and server come from the linked IPBX (client), not the extension
+  const sipDomain = ext.client?.sipDomain ?? "";
+  const sipServer = ext.client?.sipServer ?? "";
 
   const providerEnvKey = PROVIDER_ENV_KEYS[cfg.provider as AiProviderKey] ?? "AI_API_KEY";
+  // Each extension uses its own config file path so multiple systemd services
+  // can run simultaneously without overwriting each other's config.json.
+  // WorkingDirectory stays at the always-present parent; the per-extension
+  // config directory is created by ExecStartPre before the process starts.
+  const configDir = `/opt/sip4ai/ext-${extensionNumber}`;
+  const configPath = `${configDir}/config.json`;
 
   return `[Unit]
 Description=SIP4AI Voice Agent - Extension ${extensionNumber}
@@ -107,7 +119,8 @@ After=network.target
 
 [Service]
 WorkingDirectory=/opt/sip4ai
-Environment=CONFIG_FILE=config.json
+ExecStartPre=/bin/mkdir -p ${configDir}
+Environment=CONFIG_FILE=${configPath}
 Environment=SIP_USERNAME=${sipUsername}
 Environment=SIP_AUTH_ID=${sipAuthId}
 Environment=SIP_PASSWORD=${sipPassword}
