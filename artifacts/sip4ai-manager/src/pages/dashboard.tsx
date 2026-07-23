@@ -5,9 +5,10 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, Phone, Server, Activity, Play, RotateCcw, PhoneCall, PhoneOff, PhoneIncoming } from "lucide-react";
+import { Users, Phone, Server, Activity, Play, RotateCcw, Square, PhoneCall, PhoneOff, PhoneIncoming, Building } from "lucide-react";
 import { ProviderBadge } from "@/components/provider-badge";
-import { useAllDeployStatuses, useStartExtension, useRestartExtension, statusLabel, statusColor, type DeployStatus } from "@/hooks/use-deploy";
+import { useListClients } from "@workspace/api-client-react";
+import { useAllDeployStatuses, useStartExtension, useStopExtension, useRestartExtension, statusLabel, statusColor, type DeployStatus } from "@/hooks/use-deploy";
 import { useToast } from "@/hooks/use-toast";
 
 interface CallEvent {
@@ -54,8 +55,10 @@ const EVENT_LABELS: Record<CallEvent["event"], string> = {
 function AgentRow({ ext, status }: { ext: { id: number; extensionNumber: string; displayName?: string | null; agentConfig?: { provider: string } | null }; status: DeployStatus | undefined }) {
   const { toast } = useToast();
   const start = useStartExtension(ext.id);
+  const stop = useStopExtension(ext.id);
   const restart = useRestartExtension(ext.id);
   const isRunning = status?.status === "registered" || status?.status === "starting";
+  const currentStatus = status?.status ?? "stopped";
 
   return (
     <div className="flex items-center justify-between py-3 border-b last:border-0">
@@ -67,13 +70,9 @@ function AgentRow({ ext, status }: { ext: { id: number; extensionNumber: string;
         <ProviderBadge provider={ext.agentConfig?.provider} />
       </div>
       <div className="flex items-center gap-3">
-        {status ? (
-          <span className={`text-sm font-medium ${statusColor(status.status)}`}>
-            {statusLabel(status.status)}
-          </span>
-        ) : (
-          <span className="text-sm text-muted-foreground">⚫ Stopped</span>
-        )}
+        <span className={`text-sm font-medium ${statusColor(currentStatus)}`}>
+          {statusLabel(currentStatus)}
+        </span>
         {status?.uptimeSeconds != null && (
           <span className="text-xs text-muted-foreground">
             {Math.floor(status.uptimeSeconds / 60)}m {status.uptimeSeconds % 60}s
@@ -93,17 +92,30 @@ function AgentRow({ ext, status }: { ext: { id: number; extensionNumber: string;
               <Play className="h-3 w-3" /> Deploy
             </Button>
           ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1 h-7 text-xs"
-              disabled={restart.isPending}
-              onClick={() => restart.mutate(undefined, {
-                onError: (e) => toast({ variant: "destructive", title: "Restart failed", description: e.message })
-              })}
-            >
-              <RotateCcw className="h-3 w-3" /> Restart
-            </Button>
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1 h-7 text-xs border-red-300 text-red-600 hover:bg-red-50"
+                disabled={stop.isPending}
+                onClick={() => stop.mutate(undefined, {
+                  onError: (e) => toast({ variant: "destructive", title: "Stop failed", description: e.message })
+                })}
+              >
+                <Square className="h-3 w-3" /> Stop
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1 h-7 text-xs"
+                disabled={restart.isPending}
+                onClick={() => restart.mutate(undefined, {
+                  onError: (e) => toast({ variant: "destructive", title: "Restart failed", description: e.message })
+                })}
+              >
+                <RotateCcw className="h-3 w-3" /> Restart
+              </Button>
+            </>
           )}
           <Link href={`/extensions/${ext.id}`}>
             <Button size="sm" variant="ghost" className="h-7 text-xs">Details</Button>

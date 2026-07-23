@@ -72,10 +72,10 @@ export function useRestartExtension(extensionId: number) {
 
 export function statusLabel(status: DeployStatus["status"]) {
   switch (status) {
-    case "registered": return "🟢 Registered";
-    case "starting":   return "🟡 Starting…";
-    case "error":      return "🔴 Error";
-    default:           return "⚫ Stopped";
+    case "registered": return "Registered";
+    case "starting":   return "Starting…";
+    case "error":      return "Error";
+    default:           return "Stopped";
   }
 }
 
@@ -84,6 +84,6 @@ export function statusColor(status: DeployStatus["status"]) {
     case "registered": return "text-green-600";
     case "starting":   return "text-yellow-500";
     case "error":      return "text-red-500";
-    default:           return "text-muted-foreground";
+    default:           return "text-black dark:text-white";
   }
 }
