@@ -2,6 +2,7 @@ import { relations } from "drizzle-orm";
 import { clientsTable } from "./clients";
 import { extensionsTable } from "./extensions";
 import { agentConfigsTable } from "./agentConfigs";
+import { deploymentsTable } from "./deployments";
 
 export const clientsRelations = relations(clientsTable, ({ many }) => ({
   extensions: many(extensionsTable),
@@ -15,6 +16,10 @@ export const extensionsRelations = relations(extensionsTable, ({ one }) => ({
   agentConfig: one(agentConfigsTable, {
     fields: [extensionsTable.id],
     references: [agentConfigsTable.extensionId],
+  }),
+  deployment: one(deploymentsTable, {
+    fields: [extensionsTable.id],
+    references: [deploymentsTable.extensionId],
   }),
 }));
 

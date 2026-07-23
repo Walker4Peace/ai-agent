@@ -49,6 +49,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { ProviderBadge } from "@/components/provider-badge";
 import { Plus, Phone, Trash2, ArrowRight } from "lucide-react";
+import { useAllDeployStatuses, statusLabel, statusColor } from "@/hooks/use-deploy";
 
 const formSchema = z.object({
   clientId: z.string().optional(),
@@ -64,6 +65,12 @@ const formSchema = z.object({
 export default function ExtensionsList() {
   const { data: extensions, isLoading } = useListExtensions();
   const { data: clients } = useListClients();
+  const { data: allStatuses } = useAllDeployStatuses();
+  const statusMap = React.useMemo(() => {
+    const m = new Map<number, { status: string }>();
+    for (const s of allStatuses ?? []) m.set(s.extensionId, s);
+    return m;
+  }, [allStatuses]);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [open, setOpen] = React.useState(false);
@@ -298,6 +305,7 @@ export default function ExtensionsList() {
               <TableHead>Client</TableHead>
               <TableHead>Server</TableHead>
               <TableHead>AI Engine</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead className="w-[100px]"></TableHead>
             </TableRow>
           </TableHeader>
@@ -339,6 +347,13 @@ export default function ExtensionsList() {
                   <TableCell className="font-mono text-xs text-muted-foreground">{ext.sipDomain}</TableCell>
                   <TableCell>
                     <ProviderBadge provider={ext.agentConfig?.provider} />
+                  </TableCell>
+                  <TableCell>
+                    {(() => {
+                      const s = statusMap.get(ext.id);
+                      const st = (s?.status ?? "stopped") as "stopped" | "starting" | "registered" | "error";
+                      return <span className={`text-xs font-medium ${statusColor(st)}`}>{statusLabel(st)}</span>;
+                    })()}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-2">
