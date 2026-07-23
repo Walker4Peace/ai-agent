@@ -196,7 +196,7 @@ export default function AgentConfigForm() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>AI Provider</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select provider" />
@@ -221,7 +221,7 @@ export default function AgentConfigForm() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Call Mode</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select mode" />

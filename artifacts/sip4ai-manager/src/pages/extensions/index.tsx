@@ -263,9 +263,8 @@ export default function ExtensionsList() {
                       <FormItem>
                         <FormLabel>SIP Auth ID</FormLabel>
                         <FormControl>
-                          <Input placeholder="1001" {...field} />
+                          <Input placeholder="Authentification Id" {...field} />
                         </FormControl>
-                        <p className="text-xs text-muted-foreground">Authentification Id</p>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -309,7 +308,7 @@ export default function ExtensionsList() {
               <TableHead>IPBX</TableHead>
               <TableHead>AI Agent</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="w-[100px]"></TableHead>
+              <TableHead className="w-[100px] text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -349,7 +348,7 @@ export default function ExtensionsList() {
                   </TableCell>
                   <TableCell>
                     {ext.agentConfig ? (
-                      <div className="flex flex-col gap-0.5">
+                      <div className="flex flex-col gap-0.5 items-start">
                         <ProviderBadge provider={ext.agentConfig.provider} />
                         <span className="text-xs text-muted-foreground">{ext.agentConfig.name}</span>
                       </div>

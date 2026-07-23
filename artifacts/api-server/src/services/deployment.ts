@@ -28,6 +28,75 @@ interface ProcessInfo {
 
 const processes = new Map<number, ProcessInfo>();
 
+// Persistent call event store — survives extension stop/restart (cleared only on server restart)
+const MAX_PERSISTED_EVENTS = 200;
+interface PersistedCallEvent {
+  extensionId: number;
+  callId: string;
+  event: "invite" | "answered" | "ended" | "connected_ai" | "error";
+  timestamp: string;
+  detail?: string;
+}
+const persistedCallEvents: PersistedCallEvent[] = [];
+
+function parseAndStoreCallEvents(extensionId: number, line: string, timestamp: string): void {
+  const body = line.replace(/^\[[^\]]+\]\s*/, "");
+
+  const inviteMatch = body.match(/INVITE received for call:\s*(\S+)/i);
+  if (inviteMatch) {
+    persistedCallEvents.push({ extensionId, callId: inviteMatch[1], event: "invite", timestamp });
+    if (persistedCallEvents.length > MAX_PERSISTED_EVENTS) persistedCallEvents.shift();
+    return;
+  }
+  const byeMatch = body.match(/(?:Call ended|BYE received for call).*?:\s*(\S+)/i);
+  if (byeMatch) {
+    persistedCallEvents.push({ extensionId, callId: byeMatch[1], event: "ended", timestamp });
+    if (persistedCallEvents.length > MAX_PERSISTED_EVENTS) persistedCallEvents.shift();
+    return;
+  }
+  const connMatch = body.match(/Connected to .+AI/i);
+  if (connMatch) {
+    const prevInvite = [...persistedCallEvents].reverse().find(e => e.extensionId === extensionId && e.event === "invite");
+    persistedCallEvents.push({ extensionId, callId: prevInvite?.callId ?? "unknown", event: "connected_ai", timestamp, detail: body });
+    if (persistedCallEvents.length > MAX_PERSISTED_EVENTS) persistedCallEvents.shift();
+    return;
+  }
+  const aiMatch = body.match(/^AI:\s*(.+)/);
+  if (aiMatch) {
+    const prevInvite = [...persistedCallEvents].reverse().find(e => e.extensionId === extensionId && e.event === "invite");
+    persistedCallEvents.push({ extensionId, callId: prevInvite?.callId ?? "unknown", event: "connected_ai", timestamp, detail: aiMatch[1] });
+    if (persistedCallEvents.length > MAX_PERSISTED_EVENTS) persistedCallEvents.shift();
+  }
+}
+
+/** On extension stop, synthesize `ended` events for any call that has an invite but no ended,
+ *  so they never ghost as "active" after restart. */
+function closeOutstandingCalls(extensionId: number): void {
+  const timestamp = new Date().toISOString();
+  // Find all call IDs for this extension that have an invite but no ended event
+  const inviteIds = new Set<string>();
+  const endedIds = new Set<string>();
+  for (const e of persistedCallEvents) {
+    if (e.extensionId !== extensionId) continue;
+    if (e.event === "invite") inviteIds.add(e.callId);
+    if (e.event === "ended") endedIds.add(e.callId);
+  }
+  for (const callId of inviteIds) {
+    if (!endedIds.has(callId)) {
+      persistedCallEvents.push({ extensionId, callId, event: "ended", timestamp, detail: "extension stopped" });
+      if (persistedCallEvents.length > MAX_PERSISTED_EVENTS) persistedCallEvents.shift();
+    }
+  }
+}
+
+export function getPersistedCallEvents(): PersistedCallEvent[] {
+  return persistedCallEvents;
+}
+
+export function getRunningExtensionIds(): number[] {
+  return Array.from(processes.keys());
+}
+
 function parseRegistration(line: string): "registered" | "error" | null {
   const l = line.toLowerCase();
   if (l.includes("registr") && (l.includes("success") || l.includes("ok") || l.includes("200"))) return "registered";
@@ -190,9 +259,13 @@ export async function startExtension(extensionId: number): Promise<void> {
   const handleData = (data: Buffer) => {
     const lines = data.toString().split("\n").map(l => l.trim()).filter(Boolean);
     for (const line of lines) {
-      const entry = `[${new Date().toISOString()}] ${line}`;
+      const timestamp = new Date().toISOString();
+      const entry = `[${timestamp}] ${line}`;
       info.logs.push(entry);
       if (info.logs.length > MAX_LOG_LINES) info.logs.shift();
+
+      // Parse and persist call events so history survives extension stop
+      parseAndStoreCallEvents(extensionId, line, timestamp);
 
       const reg = parseRegistration(line);
       if (reg === "registered") {
@@ -223,6 +296,9 @@ export async function startExtension(extensionId: number): Promise<void> {
 }
 
 export async function stopExtension(extensionId: number): Promise<void> {
+  // Close any outstanding calls so they don't ghost as "active" after restart
+  closeOutstandingCalls(extensionId);
+
   const info = processes.get(extensionId);
   if (!info) {
     await upsertDeployment(extensionId, { status: "stopped", pid: null, sipRegistered: false, lastStoppedAt: new Date() });

@@ -359,10 +359,10 @@ export default function Dashboard() {
                     );
                   })}
                 </div>
-                {(hasMoreCalls || callGroups.length > 0) && (
-                  <div className="mt-3 flex justify-center">
+                {callGroups.length > 0 && (
+                  <div className="mt-3 flex justify-end">
                     <Link href="/calls">
-                      <Button variant="outline" size="sm">Show all calls</Button>
+                      <Button variant="ghost" size="sm" className="text-xs h-7">View all</Button>
                     </Link>
                   </div>
                 )}
@@ -402,7 +402,12 @@ export default function Dashboard() {
         {/* Provider List */}
         {stats.extensionsByProvider && stats.extensionsByProvider.length > 0 && (
           <Card>
-            <CardHeader><CardTitle className="text-base">Provider List</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-base">Provider List</CardTitle>
+              <Link href="/agent-configs">
+                <Button variant="ghost" size="sm" className="text-xs h-7">View all</Button>
+              </Link>
+            </CardHeader>
             <CardContent className="space-y-2">
               {stats.extensionsByProvider.map((p: { provider: string; count: number }) => (
                 <div key={p.provider} className="flex items-center justify-between">
