@@ -117,8 +117,9 @@ function buildConfig(ext: Awaited<ReturnType<typeof getExtWithRelations>>, exten
   // Each extension gets unique ports so multiple instances can coexist:
   //   api_port  19000 + id  (sip4ai's own HTTP API, unused by us but must not conflict)
   //   sip.listen  25060 + id  (local UDP port the SIP stack binds for send/receive)
+  // api_port: use a unique port per extension to avoid conflicts with the
+  // Express API server (8080) and other extension instances.
   const apiPort = 19000 + extensionId;
-  const sipListenPort = 25060 + extensionId;
   const base: Record<string, unknown> = {
     mode: cfg.mode ?? "inbound",
     api_port: apiPort,
@@ -129,7 +130,9 @@ function buildConfig(ext: Awaited<ReturnType<typeof getExtWithRelations>>, exten
       password: ext.sipPassword,
       domain: sipDomain,
       server: sipServer,
-      listen: `0.0.0.0:${sipListenPort}`,
+      // Note: sip4ai always binds UDP :5060 for the SIP server regardless of
+      // any listen field — the binary does not support configuring the local
+      // SIP port. Only one instance can run at a time.
     },
   };
   // API keys are NOT embedded in config.json — passed via environment variables only.
@@ -228,6 +231,17 @@ export async function startExtension(extensionId: number): Promise<void> {
   if (!ext.agentConfig) throw new Error("No AI agent config assigned. Select an Agent in the extension settings first.");
   if (!ext.client?.sipDomain || !ext.client?.sipServer) {
     throw new Error("IPBX SIP Domain and SIP Server must be configured on the linked IPBX before deploying.");
+  }
+
+  // The sip4ai binary always binds UDP :5060 for the SIP server — it cannot be
+  // configured to use a different port. Only one instance can run at a time.
+  const alreadyRunning = Array.from(processes.keys()).filter(id => id !== extensionId);
+  if (alreadyRunning.length > 0) {
+    throw new Error(
+      `Extension ${alreadyRunning[0]} is already running. ` +
+      `The sip4ai agent binds UDP port 5060 and only one extension can be deployed at a time. ` +
+      `Stop the running extension first, then deploy this one.`
+    );
   }
 
   // Stop existing process if running

@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
-import { ArrowLeft, Phone, Server, Play, Square, RotateCcw, Terminal, Loader2, AlertCircle, Bot, Edit } from "lucide-react";
+import { ArrowLeft, Phone, Server, Play, Square, RotateCcw, Terminal, Loader2, AlertCircle, Bot, Edit, Info } from "lucide-react";
 import { ProviderBadge } from "@/components/provider-badge";
 import { useToast } from "@/hooks/use-toast";
 import { maskString } from "@/lib/utils";
@@ -48,6 +48,7 @@ import {
   useStartExtension,
   useStopExtension,
   useRestartExtension,
+  useAllDeployStatuses,
   statusLabel,
   statusColor,
 } from "@/hooks/use-deploy";
@@ -83,7 +84,14 @@ export default function ExtensionDetail() {
   const updateExtension = useUpdateExtension();
 
   const { data: deployStatus, isLoading: statusLoading } = useDeployStatus(extensionId, !!extensionId);
+  const { data: allStatuses } = useAllDeployStatuses();
   const { data: logs } = useDeployLogs(extensionId, showLogs, liveLogs);
+
+  // Another extension is blocking deployment (sip4ai always binds UDP :5060)
+  const blockingExtension = allStatuses?.find(
+    s => s.extensionId !== extensionId &&
+    (s.status === "registered" || s.status === "starting")
+  );
 
   const start = useStartExtension(extensionId);
   const stop = useStopExtension(extensionId);
@@ -244,6 +252,17 @@ export default function ExtensionDetail() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {blockingExtension && !isRunning && (
+            <div className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-300">
+              <Info className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>
+                <strong>Extension {blockingExtension.extensionId} is already running.</strong>{" "}
+                The sip4ai agent binds UDP port 5060 — only one extension can be deployed at a time.
+                Stop extension {blockingExtension.extensionId} first, then deploy this one.
+              </span>
+            </div>
+          )}
+
           {deployStatus?.lastError && (
             <div className="flex items-start gap-2 rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
               <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
@@ -255,8 +274,9 @@ export default function ExtensionDetail() {
             {!isRunning ? (
               <Button
                 className="gap-2 bg-green-600 hover:bg-green-700 text-white"
-                disabled={!hasAgentConfig || start.isPending}
+                disabled={!hasAgentConfig || start.isPending || !!blockingExtension}
                 onClick={() => handleAction(start, "Deploy")}
+                title={blockingExtension ? `Stop extension ${blockingExtension.extensionId} first` : undefined}
               >
                 {start.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                 {start.isPending ? "Deploying…" : "Deploy"}
