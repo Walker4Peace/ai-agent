@@ -113,6 +113,7 @@ function buildConfig(ext: Awaited<ReturnType<typeof getExtWithRelations>>) {
   const sipServer = ext.client?.sipServer ?? "";
   const base: Record<string, unknown> = {
     mode: cfg.mode ?? "inbound",
+    api_port: 0, // disable per-process HTTP API — managed externally
     provider: cfg.provider,
     sip: {
       username: ext.sipUsername,
