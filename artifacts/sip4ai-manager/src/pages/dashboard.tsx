@@ -302,7 +302,6 @@ export default function Dashboard() {
               <div className="text-center py-8 text-muted-foreground">
                 <Phone className="h-8 w-8 mx-auto mb-2 opacity-40" />
                 <p>No extensions yet.</p>
-                <Link href="/extensions"><Button variant="link" className="mt-1">Add your first extension</Button></Link>
               </div>
             ) : (
               <div>

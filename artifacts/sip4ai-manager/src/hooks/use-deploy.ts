@@ -4,6 +4,9 @@ export interface DeployStatus {
   extensionId: number;
   status: "stopped" | "starting" | "registered" | "error";
   pid: number | null;
+  sipLocalPort: number | null;
+  httpPort: number | null;
+  serviceName: string | null;
   sipRegistered: boolean;
   lastStartedAt: string | null;
   lastStoppedAt: string | null;

@@ -33,6 +33,7 @@ A web dashboard for Yeastar solution providers to manage AI voice agent deployme
 
 - Extensions have an optional one-to-one relationship with an AgentConfig (one AI config per extension)
 - Config generation (`/generate/:id/config` and `/generate/:id/service`) is read-only — it builds config.json and systemd service files on the fly from the stored credentials and AI config
+- Deployments allocate and persist one local SIP port, HTTP port, process ID, and service name per extension; the Yeastar server remains on its configured SIP port
 - API keys are stored in plaintext in the DB (consider encrypting at rest for production)
 - Drizzle relations are declared in `lib/db/src/schema/relations.ts` — required for `db.query.*` with `with:` clauses
 

@@ -9,6 +9,8 @@ const SIP4AI_BIN =
   process.env["SIP4AI_BIN"] ?? "/home/runner/workspace/.bin/sip4ai";
 const CONFIG_DIR = "/tmp/sip4ai";
 const MAX_LOG_LINES = 300;
+const SIP_LOCAL_PORT_START = 25060;
+const HTTP_PORT_START = 19000;
 
 type AiProviderKey = "openai" | "elevenlabs" | "gemini" | "deepgram" | "cartesia";
 
@@ -108,7 +110,11 @@ function parseRegistration(line: string): "registered" | "error" | null {
   return null;
 }
 
-function buildConfig(ext: Awaited<ReturnType<typeof getExtWithRelations>>, extensionId: number) {
+function buildConfig(
+  ext: Awaited<ReturnType<typeof getExtWithRelations>>,
+  extensionId: number,
+  ports: { sipLocalPort: number; httpPort: number },
+) {
   if (!ext?.agentConfig) return null;
   const cfg = ext.agentConfig;
   // SIP domain and server now come from the linked IPBX (client)
@@ -119,10 +125,9 @@ function buildConfig(ext: Awaited<ReturnType<typeof getExtWithRelations>>, exten
   //   sip.listen  25060 + id  (local UDP port the SIP stack binds for send/receive)
   // api_port: use a unique port per extension to avoid conflicts with the
   // Express API server (8080) and other extension instances.
-  const apiPort = 19000 + extensionId;
   const base: Record<string, unknown> = {
     mode: cfg.mode ?? "inbound",
-    api_port: apiPort,
+    api_port: ports.httpPort,
     provider: cfg.provider,
     sip: {
       username: ext.sipUsername,
@@ -130,9 +135,9 @@ function buildConfig(ext: Awaited<ReturnType<typeof getExtWithRelations>>, exten
       password: ext.sipPassword,
       domain: sipDomain,
       server: sipServer,
-      // Note: sip4ai always binds UDP :5060 for the SIP server regardless of
-      // any listen field — the binary does not support configuring the local
-      // SIP port. Only one instance can run at a time.
+       // The Yeastar server stays on its configured port (normally 5060).
+       // `listen` is the local SIP socket and is unique per extension.
+       listen: ports.sipLocalPort,
     },
   };
   // API keys are NOT embedded in config.json — passed via environment variables only.
@@ -184,6 +189,11 @@ function buildConfig(ext: Awaited<ReturnType<typeof getExtWithRelations>>, exten
   return base;
 }
 
+function serviceNameFor(ext: NonNullable<Awaited<ReturnType<typeof getExtWithRelations>>>): string {
+  const suffix = ext.extensionNumber.replace(/[^a-zA-Z0-9_.@-]/g, "-");
+  return `sip4ai-${suffix || ext.id}`;
+}
+
 function buildEnv(ext: NonNullable<Awaited<ReturnType<typeof getExtWithRelations>>>, configPath: string): Record<string, string> {
   const cfg = ext.agentConfig!;
   const providerKey = PROVIDER_ENV_KEYS[cfg.provider as AiProviderKey] ?? "AI_API_KEY";
@@ -225,6 +235,28 @@ async function upsertDeployment(extensionId: number, patch: Partial<Omit<Deploym
   }
 }
 
+async function allocatePorts(extensionId: number): Promise<{ sipLocalPort: number; httpPort: number }> {
+  const existing = await db.query.deploymentsTable.findFirst({
+    where: eq(deploymentsTable.extensionId, extensionId),
+  });
+  if (existing?.sipLocalPort && existing.httpPort) {
+    return { sipLocalPort: existing.sipLocalPort, httpPort: existing.httpPort };
+  }
+
+  const rows = await db.select({
+    sipLocalPort: deploymentsTable.sipLocalPort,
+    httpPort: deploymentsTable.httpPort,
+  }).from(deploymentsTable);
+  const usedSipPorts = new Set(rows.flatMap(row => row.sipLocalPort ? [row.sipLocalPort] : []));
+  const usedHttpPorts = new Set(rows.flatMap(row => row.httpPort ? [row.httpPort] : []));
+
+  let sipLocalPort = SIP_LOCAL_PORT_START;
+  while (usedSipPorts.has(sipLocalPort)) sipLocalPort += 2;
+  let httpPort = HTTP_PORT_START;
+  while (usedHttpPorts.has(httpPort)) httpPort += 1;
+  return { sipLocalPort, httpPort };
+}
+
 export async function startExtension(extensionId: number): Promise<void> {
   const ext = await getExtWithRelations(extensionId);
   if (!ext) throw new Error("Extension not found");
@@ -243,14 +275,18 @@ export async function startExtension(extensionId: number): Promise<void> {
   const configDir = path.join(CONFIG_DIR, String(extensionId));
   await fs.mkdir(configDir, { recursive: true });
   const configPath = path.join(configDir, "config.json");
-  const config = buildConfig(ext, extensionId);
+  const { sipLocalPort, httpPort } = await allocatePorts(extensionId);
+  const serviceName = serviceNameFor(ext);
+  const config = buildConfig(ext, extensionId, { sipLocalPort, httpPort });
   await fs.writeFile(configPath, JSON.stringify(config, null, 2));
-
   const env = buildEnv(ext, configPath);
 
   await upsertDeployment(extensionId, {
     status: "starting",
     pid: null,
+    sipLocalPort,
+    httpPort,
+    serviceName,
     sipRegistered: false,
     lastStartedAt: new Date(),
     lastError: null,
@@ -258,16 +294,18 @@ export async function startExtension(extensionId: number): Promise<void> {
 
   logger.info({ extensionId, bin: SIP4AI_BIN }, "Spawning sip4ai");
 
-  // Redirect the binary's hardcoded :5060 bind to a per-extension port via LD_PRELOAD.
-  // Each extension gets 25060+id so multiple can run simultaneously.
-  const sipOverridePort = 25060 + extensionId;
+  // The bundled binary still has a legacy :5060 bind in some versions. The
+  // preload shim keeps those versions multi-instance safe while the config and
+  // environment expose the same port to the SIP stack and Contact header.
   const bindOverrideSo = path.resolve(path.dirname(SIP4AI_BIN), "bind_override.so");
 
   const proc = spawn(SIP4AI_BIN, [], {
     env: {
       ...process.env,
       ...env,
-      SIP_OVERRIDE_PORT: String(sipOverridePort),
+      SIP_LOCAL_PORT: String(sipLocalPort),
+      HTTP_PORT: String(httpPort),
+      SIP_OVERRIDE_PORT: String(sipLocalPort),
       LD_PRELOAD: bindOverrideSo,
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -277,7 +315,13 @@ export async function startExtension(extensionId: number): Promise<void> {
   const info: ProcessInfo = { proc, logs: [], startedAt: new Date() };
   processes.set(extensionId, info);
 
-  await upsertDeployment(extensionId, { status: "starting", pid: proc.pid ?? null });
+  await upsertDeployment(extensionId, {
+    status: "starting",
+    pid: proc.pid ?? null,
+    sipLocalPort,
+    httpPort,
+    serviceName,
+  });
 
   const handleData = (data: Buffer) => {
     const lines = data.toString().split("\n").map(l => l.trim()).filter(Boolean);
@@ -355,7 +399,18 @@ export async function getStatus(extensionId: number) {
   // If DB says running/registered but process is gone, fix it
   if (!isAlive && row && (row.status === "registered" || row.status === "starting")) {
     await upsertDeployment(extensionId, { status: "stopped", pid: null, sipRegistered: false });
-    return { extensionId, status: "stopped" as const, pid: null, sipRegistered: false, lastStartedAt: row.lastStartedAt, lastStoppedAt: row.lastStoppedAt, lastError: row.lastError };
+    return {
+      extensionId,
+      status: "stopped" as const,
+      pid: null,
+      sipLocalPort: row.sipLocalPort,
+      httpPort: row.httpPort,
+      serviceName: row.serviceName,
+      sipRegistered: false,
+      lastStartedAt: row.lastStartedAt,
+      lastStoppedAt: row.lastStoppedAt,
+      lastError: row.lastError,
+    };
   }
 
   const uptime = isAlive ? Math.floor((Date.now() - info.startedAt.getTime()) / 1000) : null;
@@ -364,6 +419,9 @@ export async function getStatus(extensionId: number) {
     extensionId,
     status: row?.status ?? "stopped",
     pid: row?.pid ?? null,
+    sipLocalPort: row?.sipLocalPort ?? null,
+    httpPort: row?.httpPort ?? null,
+    serviceName: row?.serviceName ?? null,
     sipRegistered: row?.sipRegistered ?? false,
     lastStartedAt: row?.lastStartedAt ?? null,
     lastStoppedAt: row?.lastStoppedAt ?? null,
@@ -382,6 +440,9 @@ export async function getAllStatuses() {
       extensionId: row.extensionId,
       status: isAlive ? row.status : (row.status === "registered" || row.status === "starting" ? "stopped" : row.status),
       pid: row.pid,
+      sipLocalPort: row.sipLocalPort,
+      httpPort: row.httpPort,
+      serviceName: row.serviceName,
       sipRegistered: isAlive ? row.sipRegistered : false,
       lastStartedAt: row.lastStartedAt,
       lastStoppedAt: row.lastStoppedAt,

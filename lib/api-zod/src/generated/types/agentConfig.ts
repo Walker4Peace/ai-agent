@@ -5,6 +5,7 @@
  * SIP Agent Configuration Manager API
  * OpenAPI spec version: 0.1.0
  */
+import type { AgentConfigMode } from './agentConfigMode';
 import type { AiProvider } from './aiProvider';
 
 export interface AgentConfig {
@@ -15,6 +16,8 @@ export interface AgentConfig {
   voiceId?: string | null;
   modelId?: string | null;
   systemPrompt?: string | null;
+  greeting?: string | null;
+  mode?: AgentConfigMode;
   language?: string | null;
   /** JSON string for provider-specific extra fields */
   extraConfig?: string | null;

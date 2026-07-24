@@ -53,6 +53,14 @@ export const AiProvider = {
   cartesia: 'cartesia',
 } as const;
 
+export type AgentConfigMode = typeof AgentConfigMode[keyof typeof AgentConfigMode];
+
+
+export const AgentConfigMode = {
+  inbound: 'inbound',
+  outbound: 'outbound',
+} as const;
+
 export interface AgentConfig {
   id: number;
   name: string;
@@ -61,6 +69,8 @@ export interface AgentConfig {
   voiceId?: string | null;
   modelId?: string | null;
   systemPrompt?: string | null;
+  greeting?: string | null;
+  mode?: AgentConfigMode;
   language?: string | null;
   /** JSON string for provider-specific extra fields */
   extraConfig?: string | null;
@@ -93,6 +103,14 @@ export interface CreateExtensionInput {
   sipPassword: string;
 }
 
+export type CreateAgentConfigInputMode = typeof CreateAgentConfigInputMode[keyof typeof CreateAgentConfigInputMode];
+
+
+export const CreateAgentConfigInputMode = {
+  inbound: 'inbound',
+  outbound: 'outbound',
+} as const;
+
 export interface CreateAgentConfigInput {
   name: string;
   provider: AiProvider;
@@ -100,6 +118,8 @@ export interface CreateAgentConfigInput {
   voiceId?: string | null;
   modelId?: string | null;
   systemPrompt?: string | null;
+  greeting?: string | null;
+  mode?: CreateAgentConfigInputMode;
   language?: string | null;
   extraConfig?: string | null;
 }

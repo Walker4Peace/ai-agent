@@ -335,9 +335,29 @@ export default function ExtensionDetail() {
         <Card className="border-l-4 border-l-blue-500">
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <CardTitle className="text-base flex items-center gap-2"><Phone className="h-4 w-4" /> SIP Credentials</CardTitle>
-            <Button variant="outline" size="sm" className="gap-2 h-8" onClick={() => setEditSipOpen(true)}>
-              <Edit className="h-3.5 w-3.5" /> Edit
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="gap-2 h-8" onClick={() => setEditSipOpen(true)}>
+                <Edit className="h-3.5 w-3.5" /> Edit
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 h-8 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                onClick={() => {
+                  if (!window.confirm(`Remove extension ${extension.extensionNumber}? This cannot be undone.`)) return;
+                  deleteExtension.mutate({ id: extensionId }, {
+                    onSuccess: () => {
+                      toast({ title: "Extension removed" });
+                      navigate("/extensions");
+                    },
+                    onError: () => toast({ variant: "destructive", title: "Failed to remove extension" }),
+                  });
+                }}
+                disabled={deleteExtension.isPending}
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Remove
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <dl className="space-y-2 text-sm">

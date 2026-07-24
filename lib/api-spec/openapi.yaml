@@ -518,6 +518,12 @@ components:
         systemPrompt:
           type: string
           nullable: true
+        greeting:
+          type: string
+          nullable: true
+        mode:
+          type: string
+          enum: [inbound, outbound]
         language:
           type: string
           nullable: true
@@ -557,6 +563,12 @@ components:
         systemPrompt:
           type: string
           nullable: true
+        greeting:
+          type: string
+          nullable: true
+        mode:
+          type: string
+          enum: [inbound, outbound]
         language:
           type: string
           nullable: true

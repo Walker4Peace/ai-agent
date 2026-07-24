@@ -78,12 +78,6 @@ export default function AgentConfigForm() {
     },
   });
 
-  // Don't render the form in edit mode until we have the existing config —
-  // otherwise the provider Select initialises with the wrong default value.
-  if (isEdit && isLoadingConfig) {
-    return <div className="animate-pulse p-8 text-muted-foreground">Loading agent configuration…</div>;
-  }
-
   const selectedProvider = form.watch("provider");
 
   React.useEffect(() => {
@@ -102,6 +96,12 @@ export default function AgentConfigForm() {
       });
     }
   }, [isEdit, existingConfig, form]);
+
+  // Keep all hooks above this guard so reopening or switching between records
+  // cannot leave the provider select with a stale/default value.
+  if (isEdit && isLoadingConfig) {
+    return <div className="animate-pulse p-8 text-muted-foreground">Loading agent configuration…</div>;
+  }
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     if (isEdit) {
@@ -131,10 +131,6 @@ export default function AgentConfigForm() {
       );
     }
   };
-
-  if (isEdit && isLoadingConfig) {
-    return <div className="p-8 animate-pulse text-muted-foreground">Loading configuration...</div>;
-  }
 
   // Define fields to show based on provider
   const showModel = ["openai", "gemini", "cartesia", "elevenlabs"].includes(selectedProvider);

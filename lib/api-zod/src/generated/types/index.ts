@@ -7,9 +7,11 @@
  */
 
 export * from './agentConfig';
+export * from './agentConfigMode';
 export * from './aiProvider';
 export * from './client';
 export * from './createAgentConfigInput';
+export * from './createAgentConfigInputMode';
 export * from './createClientInput';
 export * from './createExtensionInput';
 export * from './dashboardStats';

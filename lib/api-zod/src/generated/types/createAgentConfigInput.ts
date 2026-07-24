@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AiProvider } from './aiProvider';
+import type { CreateAgentConfigInputMode } from './createAgentConfigInputMode';
 
 export interface CreateAgentConfigInput {
   name: string;
@@ -14,6 +15,8 @@ export interface CreateAgentConfigInput {
   voiceId?: string | null;
   modelId?: string | null;
   systemPrompt?: string | null;
+  greeting?: string | null;
+  mode?: CreateAgentConfigInputMode;
   language?: string | null;
   extraConfig?: string | null;
 }

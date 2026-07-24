@@ -52,7 +52,7 @@ const editSchema = z.object({
   description: z.string().optional(),
   sipDomain: z.string().optional(),
   sipHost: z.string().optional(),
-  sipPort: z.string().optional(),
+  sipPort: z.string().min(1, "Port is required."),
 });
 
 function parseSipServer(sipServer: string | null | undefined): { sipHost: string; sipPort: string } {
@@ -276,13 +276,22 @@ export default function ClientDetail() {
                       <FormMessage />
                     </FormItem>
                   )} />
-                  <FormField control={form.control} name="sipServer" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>SIP Server:Port</FormLabel>
-                      <FormControl><Input placeholder="pbx.example.com:5060" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                  <div className="grid grid-cols-[1fr_6rem] gap-2">
+                    <FormField control={form.control} name="sipHost" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SIP Server</FormLabel>
+                        <FormControl><Input placeholder="pbx.example.com" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="sipPort" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Port</FormLabel>
+                        <FormControl><Input inputMode="numeric" placeholder="5060" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
                   <FormField control={form.control} name="description" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Notes</FormLabel>
@@ -302,10 +311,16 @@ export default function ClientDetail() {
                   <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">SIP Domain</div>
                   <div className="text-sm font-mono">{client.sipDomain || "—"}</div>
                 </div>
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">SIP Server:Port</div>
-                  <div className="text-sm font-mono">{client.sipServer || "—"}</div>
-                </div>
+                 <div className="grid grid-cols-2 gap-3">
+                   <div>
+                     <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">SIP Server</div>
+                     <div className="text-sm font-mono">{parseSipServer(client.sipServer).sipHost || "—"}</div>
+                   </div>
+                   <div>
+                     <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Port</div>
+                     <div className="text-sm font-mono">{parseSipServer(client.sipServer).sipPort}</div>
+                   </div>
+                 </div>
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Notes</div>
                   <div className="text-sm">{client.description || "—"}</div>
@@ -314,6 +329,14 @@ export default function ClientDetail() {
                   <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Added On</div>
                   <div className="text-sm">{formatDate(client.createdAt)}</div>
                 </div>
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   className="w-full gap-2 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                   onClick={handleDelete}
+                 >
+                   <Trash2 className="h-4 w-4" /> Remove IPBX
+                 </Button>
               </div>
             )}
           </CardContent>
@@ -329,7 +352,7 @@ export default function ClientDetail() {
               className="h-8 gap-2"
               onClick={() => setLinkDialogOpen(true)}
             >
-              <Link2 className="h-3.5 w-3.5" /> Add Extension
+              <Link2 className="h-3.5 w-3.5" /> Link Extension
             </Button>
           </CardHeader>
           <CardContent>

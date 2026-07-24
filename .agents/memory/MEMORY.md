@@ -1,0 +1,1 @@
+- [Artifact build environment](build-environment.md) — Vite builds need the managed artifact PORT and BASE_PATH values during standalone verification.

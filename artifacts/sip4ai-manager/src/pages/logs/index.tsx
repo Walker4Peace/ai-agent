@@ -26,6 +26,11 @@ export default function LogsPage() {
     }
   }, [allStatuses, selectedId]);
 
+  React.useEffect(() => {
+    setLiveFromIndex(null);
+    setIsLive(false);
+  }, [selectedId]);
+
   const { data: logs, dataUpdatedAt } = useDeployLogs(
     selectedId ?? 0,
     selectedId != null,
@@ -188,7 +193,7 @@ export default function LogsPage() {
                     : "Waiting for output…"}
                 </p>
               ) : (
-                logs.lines.map((line, i) => {
+                displayedLines.map((line, i) => {
                   // Colour-code lines by severity hints
                   const lower = line.toLowerCase();
                   const cls = lower.includes("error") || lower.includes("fail") || lower.includes("401") || lower.includes("403")

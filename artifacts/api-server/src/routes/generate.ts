@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { eq } from "drizzle-orm";
 import { db, extensionsTable, type Extension, type AgentConfig, type Client } from "@workspace/db";
-import { GenerateConfigParams, GenerateServiceFileParams } from "@workspace/api-zod";
 
 const router = Router();
 
@@ -12,6 +11,11 @@ type ExtensionWithRelations = Extension & {
 
 type AiProviderKey = "openai" | "elevenlabs" | "gemini" | "deepgram" | "cartesia";
 
+function serviceNameFor(ext: ExtensionWithRelations): string {
+  const suffix = ext.extensionNumber.replace(/[^a-zA-Z0-9_.@-]/g, "-");
+  return `sip4ai-${suffix || ext.id}`;
+}
+
 const PROVIDER_ENV_KEYS: Record<AiProviderKey, string> = {
   openai: "OPENAI_API_KEY",
   elevenlabs: "ELEVEN_LABS_API_KEY",
@@ -20,16 +24,22 @@ const PROVIDER_ENV_KEYS: Record<AiProviderKey, string> = {
   cartesia: "CARTESIA_API_KEY",
 };
 
-function buildConfigJson(ext: ExtensionWithRelations): Record<string, unknown> | null {
+async function buildConfigJson(ext: ExtensionWithRelations): Promise<Record<string, unknown> | null> {
   if (!ext.agentConfig) return null;
   const cfg = ext.agentConfig;
   const { sipUsername, sipAuthId, sipPassword } = ext;
   // SIP domain and server come from the linked IPBX (client), not the extension
   const sipDomain = ext.client?.sipDomain ?? "";
   const sipServer = ext.client?.sipServer ?? "";
+  const deployment = await db.query.deploymentsTable.findFirst({
+    where: (table, { eq }) => eq(table.extensionId, ext.id),
+  });
+  const sipLocalPort = deployment?.sipLocalPort ?? 25060 + ext.id * 2;
+  const httpPort = deployment?.httpPort ?? 19000 + ext.id;
 
   const base: Record<string, unknown> = {
     mode: cfg.mode ?? "inbound",
+    api_port: httpPort,
     provider: cfg.provider,
     sip: {
       username: sipUsername,
@@ -37,6 +47,7 @@ function buildConfigJson(ext: ExtensionWithRelations): Record<string, unknown> |
       password: sipPassword,
       domain: sipDomain,
       server: sipServer,
+      listen: sipLocalPort,
     },
   };
 
@@ -97,13 +108,18 @@ function buildConfigJson(ext: ExtensionWithRelations): Record<string, unknown> |
   return base;
 }
 
-function buildServiceFile(ext: ExtensionWithRelations): string | null {
+async function buildServiceFile(ext: ExtensionWithRelations): Promise<string | null> {
   if (!ext.agentConfig) return null;
   const cfg = ext.agentConfig;
   const { extensionNumber, sipUsername, sipAuthId, sipPassword } = ext;
   // SIP domain and server come from the linked IPBX (client), not the extension
   const sipDomain = ext.client?.sipDomain ?? "";
   const sipServer = ext.client?.sipServer ?? "";
+  const deployment = await db.query.deploymentsTable.findFirst({
+    where: (table, { eq }) => eq(table.extensionId, ext.id),
+  });
+  const sipLocalPort = deployment?.sipLocalPort ?? 25060 + ext.id * 2;
+  const httpPort = deployment?.httpPort ?? 19000 + ext.id;
 
   const providerEnvKey = PROVIDER_ENV_KEYS[cfg.provider as AiProviderKey] ?? "AI_API_KEY";
   // Each extension uses its own config file path so multiple systemd services
@@ -112,6 +128,7 @@ function buildServiceFile(ext: ExtensionWithRelations): string | null {
   // config directory is created by ExecStartPre before the process starts.
   const configDir = `/opt/sip4ai/ext-${extensionNumber}`;
   const configPath = `${configDir}/config.json`;
+  const serviceName = serviceNameFor(ext);
 
   return `[Unit]
 Description=SIP4AI Voice Agent - Extension ${extensionNumber}
@@ -126,6 +143,9 @@ Environment=SIP_AUTH_ID=${sipAuthId}
 Environment=SIP_PASSWORD=${sipPassword}
 Environment=SIP_DOMAIN=${sipDomain}
 Environment=SIP_SERVER=${sipServer}
+Environment=SIP_LOCAL_PORT=${sipLocalPort}
+Environment=HTTP_PORT=${httpPort}
+Environment=SIP_OVERRIDE_PORT=${sipLocalPort}
 Environment=${providerEnvKey}=${cfg.apiKey}
 ExecStart=/usr/local/bin/sip4ai
 Restart=always
@@ -137,7 +157,11 @@ WantedBy=multi-user.target
 }
 
 router.get("/generate/:extensionId/config", async (req, res) => {
-  const { extensionId } = GenerateConfigParams.parse({ extensionId: Number(req.params.extensionId) });
+  const extensionId = Number(req.params.extensionId);
+  if (!Number.isInteger(extensionId) || extensionId <= 0) {
+    res.status(400).json({ error: "Invalid extensionId" });
+    return;
+  }
 
   const ext = await db.query.extensionsTable.findFirst({
     where: eq(extensionsTable.id, extensionId),
@@ -149,7 +173,7 @@ router.get("/generate/:extensionId/config", async (req, res) => {
     return;
   }
 
-  const content = buildConfigJson(ext);
+  const content = await buildConfigJson(ext);
   if (!content) {
     res.status(404).json({ error: "No AI agent config found for this extension" });
     return;
@@ -162,7 +186,11 @@ router.get("/generate/:extensionId/config", async (req, res) => {
 });
 
 router.get("/generate/:extensionId/service", async (req, res) => {
-  const { extensionId } = GenerateServiceFileParams.parse({ extensionId: Number(req.params.extensionId) });
+  const extensionId = Number(req.params.extensionId);
+  if (!Number.isInteger(extensionId) || extensionId <= 0) {
+    res.status(400).json({ error: "Invalid extensionId" });
+    return;
+  }
 
   const ext = await db.query.extensionsTable.findFirst({
     where: eq(extensionsTable.id, extensionId),
@@ -174,14 +202,14 @@ router.get("/generate/:extensionId/service", async (req, res) => {
     return;
   }
 
-  const content = buildServiceFile(ext);
+  const content = await buildServiceFile(ext);
   if (!content) {
     res.status(404).json({ error: "No AI agent config found for this extension" });
     return;
   }
 
   res.json({
-    filename: `sip4ai-ext-${ext.extensionNumber}.service`,
+    filename: `${serviceNameFor(ext)}.service`,
     content,
   });
 });
