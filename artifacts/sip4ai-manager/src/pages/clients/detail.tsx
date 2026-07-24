@@ -1,11 +1,13 @@
 import React from "react";
-import { Link, useParams } from "wouter";
+import { Link, useParams, useLocation } from "wouter";
 import { 
   useGetClient,
   useUpdateClient,
+  useDeleteClient,
   useListExtensions,
   useUpdateExtension,
-  getListExtensionsQueryKey
+  getListExtensionsQueryKey,
+  getListClientsQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -33,7 +35,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { ArrowLeft, Phone, Edit, Save, X, Plus, Link2 } from "lucide-react";
+import { ArrowLeft, Phone, Edit, Save, X, Plus, Link2, Trash2 } from "lucide-react";
 import { ProviderBadge } from "@/components/provider-badge";
 import { formatDate } from "@/lib/utils";
 import {
@@ -49,8 +51,16 @@ const editSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
   description: z.string().optional(),
   sipDomain: z.string().optional(),
-  sipServer: z.string().optional(),
+  sipHost: z.string().optional(),
+  sipPort: z.string().optional(),
 });
+
+function parseSipServer(sipServer: string | null | undefined): { sipHost: string; sipPort: string } {
+  if (!sipServer) return { sipHost: "", sipPort: "5060" };
+  const lastColon = sipServer.lastIndexOf(":");
+  if (lastColon === -1) return { sipHost: sipServer, sipPort: "5060" };
+  return { sipHost: sipServer.slice(0, lastColon), sipPort: sipServer.slice(lastColon + 1) || "5060" };
+}
 
 export default function ClientDetail() {
   const { id } = useParams();
@@ -91,20 +101,24 @@ export default function ClientDetail() {
   );
 
   const updateClient = useUpdateClient();
+  const deleteClient = useDeleteClient();
   const updateExtension = useUpdateExtension();
+  const [, navigate] = useLocation();
 
   const form = useForm<z.infer<typeof editSchema>>({
     resolver: zodResolver(editSchema),
-    defaultValues: { name: "", description: "", sipDomain: "", sipServer: "" },
+    defaultValues: { name: "", description: "", sipDomain: "", sipHost: "", sipPort: "5060" },
   });
 
   React.useEffect(() => {
     if (client) {
+      const { sipHost, sipPort } = parseSipServer(client.sipServer);
       form.reset({
         name: client.name,
         description: client.description ?? "",
         sipDomain: client.sipDomain ?? "",
-        sipServer: client.sipServer ?? "",
+        sipHost,
+        sipPort,
       });
     }
   }, [client, form]);
@@ -117,8 +131,9 @@ export default function ClientDetail() {
   }, [linkDialogOpen, linkedExtIds]);
 
   const onSave = (values: z.infer<typeof editSchema>) => {
+    const sipServer = values.sipHost ? `${values.sipHost}:${values.sipPort || "5060"}` : "";
     updateClient.mutate(
-      { id: clientId, data: values },
+      { id: clientId, data: { name: values.name, description: values.description, sipDomain: values.sipDomain, sipServer } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: ['client', clientId] });
@@ -126,6 +141,21 @@ export default function ClientDetail() {
           toast({ title: "IPBX updated" });
         },
         onError: () => toast({ variant: "destructive", title: "Error", description: "Failed to update IPBX." }),
+      }
+    );
+  };
+
+  const handleDelete = () => {
+    if (!client || !window.confirm(`Delete "${client.name}"? This cannot be undone.`)) return;
+    deleteClient.mutate(
+      { id: clientId },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListClientsQueryKey() });
+          toast({ title: "IPBX deleted" });
+          navigate("/ipbxs");
+        },
+        onError: () => toast({ variant: "destructive", title: "Failed to delete IPBX" }),
       }
     );
   };

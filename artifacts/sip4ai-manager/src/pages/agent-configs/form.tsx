@@ -78,6 +78,12 @@ export default function AgentConfigForm() {
     },
   });
 
+  // Don't render the form in edit mode until we have the existing config —
+  // otherwise the provider Select initialises with the wrong default value.
+  if (isEdit && isLoadingConfig) {
+    return <div className="animate-pulse p-8 text-muted-foreground">Loading agent configuration…</div>;
+  }
+
   const selectedProvider = form.watch("provider");
 
   React.useEffect(() => {

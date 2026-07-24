@@ -12,7 +12,8 @@ export default function LogsPage() {
   const { data: extensions } = useListExtensions();
   const { data: allStatuses } = useAllDeployStatuses();
   const [selectedId, setSelectedId] = React.useState<number | null>(null);
-  const [autoRefresh, setAutoRefresh] = React.useState(true);
+  const [isLive, setIsLive] = React.useState(false);
+  const [liveFromIndex, setLiveFromIndex] = React.useState<number | null>(null);
   const logsEndRef = React.useRef<HTMLDivElement>(null);
 
   // Auto-select first extension with a running agent
@@ -27,15 +28,32 @@ export default function LogsPage() {
 
   const { data: logs, dataUpdatedAt } = useDeployLogs(
     selectedId ?? 0,
-    autoRefresh && selectedId != null
+    selectedId != null,
+    isLive
   );
 
-  // Scroll to bottom when new logs arrive
+  // Track lines when live starts, compute displayed lines
+  const displayedLines = React.useMemo(() => {
+    if (!logs?.lines) return [];
+    if (liveFromIndex !== null) return logs.lines.slice(liveFromIndex);
+    return logs.lines;
+  }, [logs?.lines, liveFromIndex]);
+
+  const handleLiveToggle = () => {
+    if (!isLive) {
+      setLiveFromIndex(logs?.lines.length ?? 0);
+      setIsLive(true);
+    } else {
+      setIsLive(false);
+    }
+  };
+
+  // Scroll to bottom only during live mode
   React.useEffect(() => {
-    if (autoRefresh) {
+    if (isLive) {
       logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [logs?.lines.length, autoRefresh]);
+  }, [displayedLines.length, isLive]);
 
   const selectedStatus = allStatuses?.find((s) => s.extensionId === selectedId);
   const selectedExtension = extensions?.find((e) => e.id === selectedId);
@@ -85,13 +103,13 @@ export default function LogsPage() {
 
         <div className="ml-auto flex items-center gap-2">
           <Button
-            variant={autoRefresh ? "default" : "outline"}
+            variant={isLive ? "default" : "outline"}
             size="sm"
             className="gap-2"
-            onClick={() => setAutoRefresh((v) => !v)}
+            onClick={handleLiveToggle}
           >
-            <RefreshCw className={`h-4 w-4 ${autoRefresh ? "animate-spin" : ""}`} />
-            {autoRefresh ? "Live" : "Paused"}
+            <RefreshCw className={`h-4 w-4 ${isLive ? "animate-spin" : ""}`} />
+            {isLive ? "Live" : "Stopped"}
           </Button>
           {selectedId && (
             <Link href={`/extensions/${selectedId}`}>

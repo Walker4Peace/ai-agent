@@ -233,17 +233,6 @@ export async function startExtension(extensionId: number): Promise<void> {
     throw new Error("IPBX SIP Domain and SIP Server must be configured on the linked IPBX before deploying.");
   }
 
-  // The sip4ai binary always binds UDP :5060 for the SIP server — it cannot be
-  // configured to use a different port. Only one instance can run at a time.
-  const alreadyRunning = Array.from(processes.keys()).filter(id => id !== extensionId);
-  if (alreadyRunning.length > 0) {
-    throw new Error(
-      `Extension ${alreadyRunning[0]} is already running. ` +
-      `The sip4ai agent binds UDP port 5060 and only one extension can be deployed at a time. ` +
-      `Stop the running extension first, then deploy this one.`
-    );
-  }
-
   // Stop existing process if running
   if (processes.has(extensionId)) {
     await stopExtension(extensionId);
@@ -269,8 +258,18 @@ export async function startExtension(extensionId: number): Promise<void> {
 
   logger.info({ extensionId, bin: SIP4AI_BIN }, "Spawning sip4ai");
 
+  // Redirect the binary's hardcoded :5060 bind to a per-extension port via LD_PRELOAD.
+  // Each extension gets 25060+id so multiple can run simultaneously.
+  const sipOverridePort = 25060 + extensionId;
+  const bindOverrideSo = path.resolve(path.dirname(SIP4AI_BIN), "bind_override.so");
+
   const proc = spawn(SIP4AI_BIN, [], {
-    env: { ...process.env, ...env },
+    env: {
+      ...process.env,
+      ...env,
+      SIP_OVERRIDE_PORT: String(sipOverridePort),
+      LD_PRELOAD: bindOverrideSo,
+    },
     stdio: ["ignore", "pipe", "pipe"],
     detached: false,
   });

@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "wouter";
-import { useGetStats, useListExtensions, useListClients } from "@workspace/api-client-react";
+import { useGetStats, useListExtensions } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Users, Phone, Server, Activity, Play, RotateCcw, Square, PhoneCall, PhoneOff, PhoneIncoming, Building, ChevronDown, ChevronRight } from "lucide-react";
+import { Users, Phone, Server, Activity, Play, RotateCcw, Square, PhoneCall, PhoneOff, PhoneIncoming, ChevronDown, ChevronRight } from "lucide-react";
 import { ProviderBadge } from "@/components/provider-badge";
 import { useAllDeployStatuses, useStartExtension, useStopExtension, useRestartExtension, statusLabel, statusColor, type DeployStatus } from "@/hooks/use-deploy";
 import { useToast } from "@/hooks/use-toast";
@@ -209,7 +209,6 @@ function AgentRow({ ext, status }: { ext: { id: number; extensionNumber: string;
 export default function Dashboard() {
   const { data: stats, isLoading, isError: statsError } = useGetStats();
   const { data: extensions } = useListExtensions();
-  const { data: clients } = useListClients();
   const { data: allStatuses } = useAllDeployStatuses();
   const { data: callEvents } = useCallEvents();
 
@@ -251,10 +250,6 @@ export default function Dashboard() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground mt-1">Overview of your AI voice agent deployments.</p>
-        </div>
-        <div className="flex gap-2">
-          <Link href="/ipbxs"><Button variant="outline">Manage IPBXs</Button></Link>
-          <Link href="/extensions"><Button>Add Extension</Button></Link>
         </div>
       </div>
 
@@ -371,53 +366,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* IPBXs List */}
-        {clients && clients.length > 0 && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Building className="h-4 w-4" />
-                IPBXs List
-              </CardTitle>
-              <Link href="/ipbxs">
-                <Button variant="ghost" size="sm" className="text-xs h-7">View all</Button>
-              </Link>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {clients.map((c) => (
-                <Link key={c.id} href={`/ipbxs/${c.id}`}>
-                  <div className="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer">
-                    <div>
-                      <p className="text-sm font-medium">{c.name}</p>
-                      <p className="text-xs text-muted-foreground font-mono">{c.sipDomain || "—"}</p>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </Link>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Provider List */}
-        {stats?.extensionsByProvider && stats.extensionsByProvider.length > 0 && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="text-base">Provider List</CardTitle>
-              <Link href="/agent-configs">
-                <Button variant="ghost" size="sm" className="text-xs h-7">View all</Button>
-              </Link>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {stats.extensionsByProvider.map((p: { provider: string; count: number }) => (
-                <div key={p.provider} className="flex items-center justify-between">
-                  <ProviderBadge provider={p.provider} />
-                  <Badge variant="secondary">{p.count}</Badge>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
       </div>
     </div>
   );

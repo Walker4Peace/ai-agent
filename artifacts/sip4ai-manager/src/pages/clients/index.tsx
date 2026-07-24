@@ -40,13 +40,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDate } from "@/lib/utils";
-import { Plus, Building, Trash2, Edit } from "lucide-react";
+import { Plus, Building, Trash2 } from "lucide-react";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
   description: z.string().optional(),
   sipDomain: z.string().optional(),
-  sipServer: z.string().optional(),
+  sipHost: z.string().optional(),
+  sipPort: z.string().optional(),
 });
 
 export default function ClientsList() {
@@ -64,13 +65,15 @@ export default function ClientsList() {
       name: "",
       description: "",
       sipDomain: "",
-      sipServer: "",
+      sipHost: "",
+      sipPort: "5060",
     },
   });
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
+    const sipServer = values.sipHost ? `${values.sipHost}:${values.sipPort || "5060"}` : "";
     createClient.mutate(
-      { data: values },
+      { data: { name: values.name, description: values.description, sipDomain: values.sipDomain, sipServer } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListClientsQueryKey() });
@@ -161,19 +164,34 @@ export default function ClientsList() {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="sipServer"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>SIP Server:Port</FormLabel>
-                      <FormControl>
-                        <Input placeholder="pbx.example.com:5060" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="flex gap-2">
+                  <FormField
+                    control={form.control}
+                    name="sipHost"
+                    render={({ field }) => (
+                      <FormItem className="flex-1">
+                        <FormLabel>SIP Server</FormLabel>
+                        <FormControl>
+                          <Input placeholder="pbx.example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="sipPort"
+                    render={({ field }) => (
+                      <FormItem className="w-24">
+                        <FormLabel>Port</FormLabel>
+                        <FormControl>
+                          <Input placeholder="5060" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
                 
                 <FormField
                   control={form.control}
@@ -239,11 +257,6 @@ export default function ClientsList() {
                   <TableCell className="text-muted-foreground">{formatDate(client.createdAt)}</TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-2">
-                      <Link href={`/ipbxs/${client.id}`}>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </Link>
                       <Button 
                         variant="ghost" 
                         size="icon" 
