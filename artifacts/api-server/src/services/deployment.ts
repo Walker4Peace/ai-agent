@@ -27,6 +27,9 @@ interface ProcessInfo {
 }
 
 const processes = new Map<number, ProcessInfo>();
+// Keeps the last logs for an extension even after the process exits,
+// so crash output is readable from the UI without restarting the extension.
+const exitedLogs = new Map<number, string[]>();
 
 // Persistent call event store — survives extension stop/restart (cleared only on server restart)
 const MAX_PERSISTED_EVENTS = 200;
@@ -105,15 +108,20 @@ function parseRegistration(line: string): "registered" | "error" | null {
   return null;
 }
 
-function buildConfig(ext: Awaited<ReturnType<typeof getExtWithRelations>>) {
+function buildConfig(ext: Awaited<ReturnType<typeof getExtWithRelations>>, extensionId: number) {
   if (!ext?.agentConfig) return null;
   const cfg = ext.agentConfig;
   // SIP domain and server now come from the linked IPBX (client)
   const sipDomain = ext.client?.sipDomain ?? "";
   const sipServer = ext.client?.sipServer ?? "";
+  // Each extension gets unique ports so multiple instances can coexist:
+  //   api_port  19000 + id  (sip4ai's own HTTP API, unused by us but must not conflict)
+  //   sip.listen  25060 + id  (local UDP port the SIP stack binds for send/receive)
+  const apiPort = 19000 + extensionId;
+  const sipListenPort = 25060 + extensionId;
   const base: Record<string, unknown> = {
     mode: cfg.mode ?? "inbound",
-    api_port: 0, // disable per-process HTTP API — managed externally
+    api_port: apiPort,
     provider: cfg.provider,
     sip: {
       username: ext.sipUsername,
@@ -121,6 +129,7 @@ function buildConfig(ext: Awaited<ReturnType<typeof getExtWithRelations>>) {
       password: ext.sipPassword,
       domain: sipDomain,
       server: sipServer,
+      listen: `0.0.0.0:${sipListenPort}`,
     },
   };
   // API keys are NOT embedded in config.json — passed via environment variables only.
@@ -231,7 +240,7 @@ export async function startExtension(extensionId: number): Promise<void> {
   const configDir = path.join(CONFIG_DIR, String(extensionId));
   await fs.mkdir(configDir, { recursive: true });
   const configPath = path.join(configDir, "config.json");
-  const config = buildConfig(ext);
+  const config = buildConfig(ext, extensionId);
   await fs.writeFile(configPath, JSON.stringify(config, null, 2));
 
   const env = buildEnv(ext, configPath);
@@ -281,6 +290,9 @@ export async function startExtension(extensionId: number): Promise<void> {
   proc.stderr?.on("data", handleData);
 
   proc.on("exit", (code, signal) => {
+    // Preserve logs so crash output stays readable after the process is gone
+    const dying = processes.get(extensionId);
+    if (dying) exitedLogs.set(extensionId, [...dying.logs]);
     processes.delete(extensionId);
     const wasKilled = signal === "SIGTERM" || signal === "SIGKILL";
     const status = wasKilled ? "stopped" : code === 0 ? "stopped" : "error";
@@ -317,7 +329,7 @@ export async function restartExtension(extensionId: number): Promise<void> {
 }
 
 export function getLogs(extensionId: number): string[] {
-  return processes.get(extensionId)?.logs ?? [];
+  return processes.get(extensionId)?.logs ?? exitedLogs.get(extensionId) ?? [];
 }
 
 export async function getStatus(extensionId: number) {
